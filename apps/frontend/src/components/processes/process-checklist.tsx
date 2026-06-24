@@ -210,12 +210,15 @@ function AddressOwnerField({
       const res = await fetch(`${apiUrl}/processes/${processId}/steps/${stepKey}/upload`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
       })
-      if (!res.ok) throw new Error('Erro no upload')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }))
+        throw new Error(err.message || `HTTP ${res.status}`)
+      }
       const data = await res.json()
       onSave({ addressDeclarationDoc: { id: data.id, name: data.name, url: data.url } })
       onRefresh()
-    } catch {
-      alert('Erro ao enviar arquivo')
+    } catch (err) {
+      alert(`Erro ao enviar arquivo: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -312,10 +315,13 @@ function DocumentUploader({
       const res = await fetch(`${apiUrl}/processes/${processId}/steps/${stepKey}/upload`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
       })
-      if (!res.ok) throw new Error('Erro no upload')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }))
+        throw new Error(err.message || `HTTP ${res.status}`)
+      }
       onRefresh()
-    } catch {
-      alert('Erro ao enviar arquivo')
+    } catch (err) {
+      alert(`Erro ao enviar arquivo: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
