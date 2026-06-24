@@ -38,6 +38,12 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return res.json()
 }
 
+function toQS(params?: Record<string, string | number | undefined | null>): string {
+  if (!params) return ''
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  return entries.length ? '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString() : ''
+}
+
 async function tryRefresh(): Promise<string | null> {
   const refreshToken = localStorage.getItem('refreshToken')
   if (!refreshToken) return null
@@ -121,8 +127,7 @@ export const dashboard = {
 
 export const clients = {
   list: (params?: { search?: string; status?: string; page?: number; limit?: number }) => {
-    const qs = new URLSearchParams(params as Record<string, string>).toString()
-    return request<{ data: Client[]; meta: { total: number; page: number; limit: number; totalPages: number } }>(`/clients${qs ? '?' + qs : ''}`)
+    return request<{ data: Client[]; meta: { total: number; page: number; limit: number; totalPages: number } }>(`/clients${toQS(params)}`)
   },
   get: (id: string) => request<Client & { documents: unknown[]; processes: Process[]; timeline: unknown[]; transactions: Transaction[] }>(`/clients/${id}`),
   create: (data: Partial<Client>) => request<Client>('/clients', { method: 'POST', body: data }),
@@ -137,8 +142,7 @@ export const clients = {
 
 export const processes = {
   list: (params?: { clientId?: string; type?: string; status?: string }) => {
-    const qs = new URLSearchParams(params as Record<string, string>).toString()
-    return request<Process[]>(`/processes${qs ? '?' + qs : ''}`)
+    return request<Process[]>(`/processes${toQS(params)}`)
   },
   create: (data: { clientId: string; type: 'CR' | 'CRAF' | 'GT' }) =>
     request<Process>('/processes', { method: 'POST', body: data }),
@@ -152,8 +156,7 @@ export const financial = {
   dashboard: () => request<FinancialDashboard>('/financial/dashboard'),
   monthlyHistory: () => request<{ month: string; receita: number; despesas: number; lucro: number }[]>('/financial/monthly-history'),
   list: (params?: { type?: string; search?: string }) => {
-    const qs = new URLSearchParams(params as Record<string, string>).toString()
-    return request<Transaction[]>(`/financial${qs ? '?' + qs : ''}`)
+    return request<Transaction[]>(`/financial${toQS(params)}`)
   },
   create: (data: Partial<Transaction>) => request<Transaction>('/financial', { method: 'POST', body: data }),
 }
