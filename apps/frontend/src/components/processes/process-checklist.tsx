@@ -45,6 +45,9 @@ type StepMeta = {
   observations?: string
   sentAnalysisDate?: string
   documents?: StepDoc[]
+  // CRAF
+  weaponType?: string; weaponModel?: string; weaponCaliber?: string; weaponBrand?: string
+  storeName?: string; storeCnpj?: string
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -112,6 +115,113 @@ function UploadProgressBar({ progress }: { progress: number }) {
           style={{ width: `${progress}%` }}
         />
       </div>
+    </div>
+  )
+}
+
+// ─── WeaponChoiceField ────────────────────────────────────────────────────────
+
+function WeaponChoiceField({ meta, onSave }: { meta: StepMeta; onSave: (m: Partial<StepMeta>) => void }) {
+  const [type, setType] = useState(meta.weaponType ?? '')
+  const [model, setModel] = useState(meta.weaponModel ?? '')
+  const [caliber, setCaliber] = useState(meta.weaponCaliber ?? '')
+  const [brand, setBrand] = useState(meta.weaponBrand ?? '')
+  const [saved, setSaved] = useState(false)
+
+  function handleSave() {
+    onSave({ weaponType: type, weaponModel: model, weaponCaliber: caliber, weaponBrand: brand })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const inputCls = 'w-full px-3 py-2 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
+
+  return (
+    <div className="space-y-3 pt-2">
+      <label className="text-xs font-semibold text-muted-foreground">DADOS DA ARMA</label>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Tipo</label>
+          <input value={type} onChange={(e) => { setType(e.target.value); setSaved(false) }}
+            placeholder="Ex: Pistola" className={inputCls} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Marca</label>
+          <input value={brand} onChange={(e) => { setBrand(e.target.value); setSaved(false) }}
+            placeholder="Ex: Taurus" className={inputCls} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Modelo</label>
+          <input value={model} onChange={(e) => { setModel(e.target.value); setSaved(false) }}
+            placeholder="Ex: G2c" className={inputCls} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Calibre</label>
+          <input value={caliber} onChange={(e) => { setCaliber(e.target.value); setSaved(false) }}
+            placeholder="Ex: .380" className={inputCls} />
+        </div>
+      </div>
+      {meta.weaponType && (
+        <div className="bg-[#0B2545]/5 border border-[#0B2545]/20 rounded-xl px-3 py-2 text-sm text-foreground">
+          <span className="font-semibold">{meta.weaponBrand} {meta.weaponModel}</span>
+          {meta.weaponType ? ` · ${meta.weaponType}` : ''}
+          {meta.weaponCaliber ? ` · Cal. ${meta.weaponCaliber}` : ''}
+        </div>
+      )}
+      <Button size="sm" onClick={handleSave} className="bg-[#0B2545] hover:bg-[#13315C]">
+        {saved ? '✓ Salvo' : 'Salvar'}
+      </Button>
+    </div>
+  )
+}
+
+// ─── StoreChoiceField ─────────────────────────────────────────────────────────
+
+function StoreChoiceField({ meta, onSave }: { meta: StepMeta; onSave: (m: Partial<StepMeta>) => void }) {
+  const [name, setName] = useState(meta.storeName ?? '')
+  const [cnpj, setCnpj] = useState(meta.storeCnpj ?? '')
+  const [saved, setSaved] = useState(false)
+
+  function formatCnpj(value: string) {
+    const digits = value.replace(/\D/g, '').slice(0, 14)
+    return digits
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+  }
+
+  function handleSave() {
+    onSave({ storeName: name, storeCnpj: cnpj })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const inputCls = 'w-full px-3 py-2 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
+
+  return (
+    <div className="space-y-3 pt-2">
+      <label className="text-xs font-semibold text-muted-foreground">DADOS DA LOJA</label>
+      <div>
+        <label className="text-xs text-muted-foreground mb-1 block">Nome da Loja</label>
+        <input value={name} onChange={(e) => { setName(e.target.value); setSaved(false) }}
+          placeholder="Ex: Armas & Munições LTDA" className={inputCls} />
+      </div>
+      <div>
+        <label className="text-xs text-muted-foreground mb-1 block">CNPJ da Loja</label>
+        <input value={cnpj}
+          onChange={(e) => { setCnpj(formatCnpj(e.target.value)); setSaved(false) }}
+          placeholder="00.000.000/0000-00" className={inputCls} />
+      </div>
+      {meta.storeName && (
+        <div className="bg-[#0B2545]/5 border border-[#0B2545]/20 rounded-xl px-3 py-2 text-sm text-foreground">
+          <span className="font-semibold">{meta.storeName}</span>
+          {meta.storeCnpj ? <span className="text-muted-foreground"> · CNPJ: {meta.storeCnpj}</span> : ''}
+        </div>
+      )}
+      <Button size="sm" onClick={handleSave} className="bg-[#0B2545] hover:bg-[#13315C]">
+        {saved ? '✓ Salvo' : 'Salvar'}
+      </Button>
     </div>
   )
 }
@@ -650,6 +760,12 @@ function StepRow({
   }
 
   function renderSpecialContent() {
+    if (step.stepKey === 'weapon_choice') {
+      return <WeaponChoiceField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} />
+    }
+    if (step.stepKey === 'store_choice') {
+      return <StoreChoiceField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} />
+    }
     if (step.stepKey === 'gov_password') {
       return <GovPasswordField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} />
     }
