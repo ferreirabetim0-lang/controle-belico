@@ -104,32 +104,45 @@ export class ProcessesService {
   }
 
   async completeStep(companyId: string, processId: string, stepKey: string, userId: string) {
-    await this._assertProcess(companyId, processId)
+    const proc = await this._assertProcess(companyId, processId)
     const now = new Date().toISOString()
+
+    const { data: stepData } = await this.sb.from('process_steps')
+      .select('stepName').eq('processId', processId).eq('stepKey', stepKey).single()
 
     await this.sb.from('process_steps')
       .update({ isCompleted: true, completedAt: now, completedBy: userId })
       .eq('processId', processId).eq('stepKey', stepKey)
 
+    await this._addTimeline(proc.clientId, now, userId, 'process_update',
+      `Etapa concluída: ${stepData?.stepName ?? stepKey}`,
+      `Etapa "${stepData?.stepName ?? stepKey}" marcada como concluída.`)
+
     return this._recalcProgress(processId)
   }
 
-  async uncompleteStep(companyId: string, processId: string, stepKey: string) {
-    await this._assertProcess(companyId, processId)
+  async uncompleteStep(companyId: string, processId: string, stepKey: string, userId: string) {
+    const proc = await this._assertProcess(companyId, processId)
+
+    const { data: stepData } = await this.sb.from('process_steps')
+      .select('stepName').eq('processId', processId).eq('stepKey', stepKey).single()
 
     await this.sb.from('process_steps')
       .update({ isCompleted: false, completedAt: null, completedBy: null })
       .eq('processId', processId).eq('stepKey', stepKey)
 
+    await this._addTimeline(proc.clientId, new Date().toISOString(), userId, 'process_update',
+      `Etapa revertida: ${stepData?.stepName ?? stepKey}`,
+      `Etapa "${stepData?.stepName ?? stepKey}" desmarcada.`)
+
     return this._recalcProgress(processId)
   }
 
-  async updateStepMetadata(companyId: string, processId: string, stepKey: string, patch: StepMetadata) {
-    await this._assertProcess(companyId, processId)
+  async updateStepMetadata(companyId: string, processId: string, stepKey: string, patch: StepMetadata, userId?: string) {
+    const proc = await this._assertProcess(companyId, processId)
 
-    // Read current from DB to merge server-side (prevents overwriting concurrent upload)
     const { data: step } = await this.sb.from('process_steps')
-      .select('observations').eq('processId', processId).eq('stepKey', stepKey).single()
+      .select('observations, stepName').eq('processId', processId).eq('stepKey', stepKey).single()
     const current = this._parseMeta(step?.observations)
     const merged = { ...current, ...patch }
     if (patch.certificationDocs && current.certificationDocs) {
@@ -141,14 +154,21 @@ export class ProcessesService {
       .eq('processId', processId).eq('stepKey', stepKey)
 
     if (error) throw new Error(error.message)
+
+    if (userId) {
+      await this._addTimeline(proc.clientId, new Date().toISOString(), userId, 'process_update',
+        `Informação salva: ${step?.stepName ?? stepKey}`,
+        `Dados da etapa "${step?.stepName ?? stepKey}" atualizados.`)
+    }
+
     return { ok: true }
   }
 
   async uploadStepFile(
     companyId: string, processId: string, stepKey: string,
-    fileName: string, fileBuffer: Buffer, mimeType: string,
+    fileName: string, fileBuffer: Buffer, mimeType: string, userId?: string,
   ) {
-    await this._assertProcess(companyId, processId)
+    const proc = await this._assertProcess(companyId, processId)
 
     const fileId = uuidv4()
     const ext = fileName.split('.').pop()
@@ -162,16 +182,22 @@ export class ProcessesService {
 
     const { data: urlData } = this.sb.db.storage.from('documents').getPublicUrl(storagePath)
 
-    const { data: step } = await this.sb.from('process_steps')
-      .select('observations').eq('processId', processId).eq('stepKey', stepKey).single()
+    const { data: stepData } = await this.sb.from('process_steps')
+      .select('observations, stepName').eq('processId', processId).eq('stepKey', stepKey).single()
 
-    const meta: StepMetadata = this._parseMeta(step?.observations)
+    const meta: StepMetadata = this._parseMeta(stepData?.observations)
     const docs = meta.documents ?? []
     docs.push({ id: fileId, name: fileName, url: urlData.publicUrl, size: fileBuffer.length, type: mimeType, uploadedAt: new Date().toISOString() })
 
     await this.sb.from('process_steps')
       .update({ observations: JSON.stringify({ ...meta, documents: docs }) })
       .eq('processId', processId).eq('stepKey', stepKey)
+
+    if (userId) {
+      await this._addTimeline(proc.clientId, new Date().toISOString(), userId, 'document_upload',
+        `Documento anexado: ${fileName}`,
+        `Arquivo "${fileName}" anexado na etapa "${stepData?.stepName ?? stepKey}".`)
+    }
 
     return { id: fileId, name: fileName, url: urlData.publicUrl }
   }
@@ -205,8 +231,15 @@ export class ProcessesService {
 
   private async _assertProcess(companyId: string, processId: string) {
     const { data } = await this.sb.from('processes')
-      .select('id').eq('id', processId).eq('companyId', companyId).single()
+      .select('id, clientId').eq('id', processId).eq('companyId', companyId).single()
     if (!data) throw new NotFoundException('Processo não encontrado')
+    return data as { id: string; clientId: string }
+  }
+
+  private async _addTimeline(clientId: string, createdAt: string, createdBy: string, type: string, title: string, description?: string) {
+    await this.sb.from('client_timeline').insert({
+      id: uuidv4(), clientId, type, title, description, createdBy, createdAt,
+    })
   }
 
   private async _recalcProgress(processId: string) {

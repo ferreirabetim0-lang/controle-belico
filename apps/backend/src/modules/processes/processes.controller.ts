@@ -35,7 +35,7 @@ export class ProcessesController {
   @Delete(':id/steps/:stepKey/complete')
   @ApiOperation({ summary: 'Desmarcar etapa (reverter conclusão)' })
   uncompleteStep(@Request() req: any, @Param('id') id: string, @Param('stepKey') stepKey: string) {
-    return this.processesService.uncompleteStep(req.user.companyId, id, stepKey)
+    return this.processesService.uncompleteStep(req.user.companyId, id, stepKey, req.user.userId)
   }
 
   @Patch(':id/steps/:stepKey/metadata')
@@ -46,7 +46,7 @@ export class ProcessesController {
     @Param('stepKey') stepKey: string,
     @Body() body: StepMetadata,
   ) {
-    return this.processesService.updateStepMetadata(req.user.companyId, id, stepKey, body)
+    return this.processesService.updateStepMetadata(req.user.companyId, id, stepKey, body, req.user.userId)
   }
 
   @Post(':id/steps/:stepKey/upload')
@@ -64,7 +64,7 @@ export class ProcessesController {
       'image/png', 'image/jpeg']
     if (!allowed.includes(file.mimetype)) throw new BadRequestException('Tipo de arquivo não permitido')
     return this.processesService.uploadStepFile(
-      req.user.companyId, id, stepKey, file.originalname, file.buffer, file.mimetype,
+      req.user.companyId, id, stepKey, file.originalname, file.buffer, file.mimetype, req.user.userId,
     )
   }
 

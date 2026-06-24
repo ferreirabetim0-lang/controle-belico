@@ -351,7 +351,11 @@ export default function ClientDetailPage() {
             )
         )}
         {activeTab === 'documents' && (
-          <ClientDocuments clientId={id} documents={(client as any).documents ?? []} />
+          <ClientDocuments
+            clientId={id}
+            documents={(client as any).documents ?? []}
+            processes={processes}
+          />
         )}
         {activeTab === 'financial' && (
           <ClientFinancial clientId={id} />
@@ -368,7 +372,9 @@ function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes
   client: any; onNewProcess: () => void; onArchive: () => void; onWhatsApp: () => void; processes: Process[]
 }) {
   const [showGovPwd, setShowGovPwd] = useState(false)
-  const pendingSteps = processes.flatMap((p) => (p.steps ?? []).filter((s) => !s.isCompleted))
+  const allSteps = processes.flatMap((p) => p.steps ?? [])
+  const pendingSteps = allSteps.filter((s) => !s.isCompleted)
+  const completedSteps = allSteps.filter((s) => s.isCompleted)
   const daysAsClient = Math.floor((Date.now() - new Date(client.createdAt).getTime()) / 86400000)
   const activeProcess = processes.find((p) => p.status === 'IN_PROGRESS') ?? processes[0]
 
@@ -412,6 +418,31 @@ function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes
                 <div key={step.stepKey} className="flex items-center gap-2 text-sm text-foreground">
                   <div className="w-4 h-4 rounded border-2 border-[#D50000]/40 flex-shrink-0" />
                   {step.stepName}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {completedSteps.length > 0 && (
+          <div className="bg-[#00C853]/5 border border-[#00C853]/20 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-5 h-5 rounded-full bg-[#00C853] flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="font-bold text-[#00C853]">{completedSteps.length} etapa{completedSteps.length > 1 ? 's' : ''} concluída{completedSteps.length > 1 ? 's' : ''}</h3>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {completedSteps.map((step) => (
+                <div key={step.stepKey} className="flex items-center gap-2 text-sm text-foreground">
+                  <div className="w-4 h-4 rounded-full bg-[#00C853] flex items-center justify-center flex-shrink-0">
+                    <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-muted-foreground line-through">{step.stepName}</span>
                 </div>
               ))}
             </div>
