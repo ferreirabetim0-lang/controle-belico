@@ -169,7 +169,7 @@ export const processes = {
 export const financial = {
   dashboard: () => request<FinancialDashboard>('/financial/dashboard'),
   monthlyHistory: () => request<{ month: string; receita: number; despesas: number; lucro: number }[]>('/financial/monthly-history'),
-  list: (params?: { type?: string; search?: string }) => {
+  list: (params?: { type?: string; search?: string; clientId?: string }) => {
     return request<Transaction[]>(`/financial${toQS(params)}`)
   },
   create: (data: Partial<Transaction>) => request<Transaction>('/financial', { method: 'POST', body: data }),

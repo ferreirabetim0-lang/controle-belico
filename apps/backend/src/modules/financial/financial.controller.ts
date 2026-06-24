@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common'
+import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { FinancialService } from './financial.service'
@@ -21,8 +21,8 @@ export class FinancialController {
   }
 
   @Get()
-  findAll(@Request() req: any) {
-    return this.financialService.findAll(req.user.companyId)
+  findAll(@Request() req: any, @Query('clientId') clientId?: string) {
+    return this.financialService.findAll(req.user.companyId, clientId)
   }
 
   @Post()

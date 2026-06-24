@@ -53,10 +53,11 @@ export class FinancialService {
     }))
   }
 
-  async findAll(companyId: string) {
-    const { data, error } = await this.sb.from('financial_transactions')
+  async findAll(companyId: string, clientId?: string) {
+    let q = this.sb.from('financial_transactions')
       .select('*, client:clients(name)').eq('companyId', companyId)
-      .order('createdAt', { ascending: false }).limit(50)
+    if (clientId) q = q.eq('clientId', clientId)
+    const { data, error } = await q.order('createdAt', { ascending: false }).limit(100)
     if (error) throw new Error(error.message)
     return data ?? []
   }

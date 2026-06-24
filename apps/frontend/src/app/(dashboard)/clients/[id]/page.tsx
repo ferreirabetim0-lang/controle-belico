@@ -354,7 +354,7 @@ export default function ClientDetailPage() {
           <ClientDocuments clientId={id} documents={(client as any).documents ?? []} />
         )}
         {activeTab === 'financial' && (
-          <ClientFinancial clientId={id} transactions={(client as any).transactions ?? []} />
+          <ClientFinancial clientId={id} />
         )}
         {activeTab === 'timeline' && (
           <ClientTimeline clientId={id} timeline={(client as any).timeline ?? []} />
