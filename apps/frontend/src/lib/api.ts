@@ -172,7 +172,7 @@ export const financial = {
   list: (params?: { type?: string; search?: string; clientId?: string }) => {
     return request<Transaction[]>(`/financial${toQS(params)}`)
   },
-  create: (data: Partial<Transaction>) => request<Transaction>('/financial', { method: 'POST', body: data }),
+  create: (data: Partial<Transaction> & { clientId?: string }) => request<Transaction>('/financial', { method: 'POST', body: data }),
 }
 
 // ─── Assinaturas / Planos ────────────────────────────────────────────────────
