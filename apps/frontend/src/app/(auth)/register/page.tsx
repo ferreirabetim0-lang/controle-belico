@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Shield, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { auth } from '@/lib/api'
 
 const plans = [
   { id: 'starter', name: 'Starter', price: 49.90, features: ['Até 50 clientes', 'CR e GT', 'Documentos básicos', 'Suporte via email'] },
@@ -11,9 +13,11 @@ const plans = [
 ]
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState('premium')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [step, setStep] = useState<'plan' | 'data'>('plan')
 
   const [form, setForm] = useState({
@@ -21,14 +25,39 @@ export default function RegisterPage() {
     email: '',
     phone: '',
     company: '',
-    cnpj: '',
     password: '',
   })
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => setLoading(false), 1500)
+    setError('')
+
+    const slug = form.company
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+
+    try {
+      const res = await auth.register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        companyName: form.company,
+        slug,
+      })
+      localStorage.setItem('accessToken', res.accessToken)
+      localStorage.setItem('refreshToken', res.refreshToken)
+      document.cookie = `accessToken=${res.accessToken}; path=/; max-age=86400`
+      router.push('/dashboard')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao criar conta'
+      setError(Array.isArray(msg) ? msg.join(', ') : msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -212,6 +241,10 @@ export default function RegisterPage() {
                   <a href="#" className="text-[#3E92CC] hover:underline">Termos de Uso</a> e{' '}
                   <a href="#" className="text-[#3E92CC] hover:underline">Política de Privacidade</a>.
                 </p>
+
+                {error && (
+                  <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>
+                )}
 
                 <Button type="submit" disabled={loading} className="w-full h-12 bg-[#0B2545] hover:bg-[#13315C] font-semibold">
                   {loading ? 'Criando conta...' : 'Criar conta grátis →'}
