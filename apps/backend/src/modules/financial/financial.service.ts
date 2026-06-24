@@ -1,6 +1,16 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { SupabaseService } from '../../supabase/supabase.service'
 import { v4 as uuidv4 } from 'uuid'
+
+type FindAllFilters = {
+  clientId?: string
+  type?: string
+  status?: string
+  search?: string
+  dateFrom?: string
+  dateTo?: string
+  category?: string
+}
 
 @Injectable()
 export class FinancialService {
@@ -53,11 +63,25 @@ export class FinancialService {
     }))
   }
 
-  async findAll(companyId: string, clientId?: string) {
+  async findAll(companyId: string, filters: FindAllFilters = {}) {
+    const { clientId, type, status, search, dateFrom, dateTo, category } = filters
+
     let q = this.sb.from('financial_transactions')
       .select('*, client:clients(name)').eq('companyId', companyId)
+
     if (clientId) q = q.eq('clientId', clientId)
-    const { data, error } = await q.order('createdAt', { ascending: false }).limit(100)
+    if (type) q = q.eq('type', type)
+    if (status) q = q.eq('status', status)
+    if (category) q = q.eq('category', category)
+    if (search) q = q.ilike('description', `%${search}%`)
+    if (dateFrom) q = q.gte('createdAt', new Date(dateFrom).toISOString())
+    if (dateTo) {
+      const to = new Date(dateTo)
+      to.setHours(23, 59, 59, 999)
+      q = q.lte('createdAt', to.toISOString())
+    }
+
+    const { data, error } = await q.order('createdAt', { ascending: false }).limit(500)
     if (error) throw new Error(error.message)
     return data ?? []
   }
@@ -69,5 +93,27 @@ export class FinancialService {
       .select().single()
     if (error) throw new Error(error.message)
     return data
+  }
+
+  async update(companyId: string, id: string, dto: any) {
+    const { data: existing, error: findErr } = await this.sb.from('financial_transactions')
+      .select('id').eq('id', id).eq('companyId', companyId).single()
+    if (findErr || !existing) throw new NotFoundException('Lançamento não encontrado')
+
+    const { id: _id, companyId: _c, createdAt: _ca, ...safe } = dto
+    const { data, error } = await this.sb.from('financial_transactions')
+      .update({ ...safe, updatedAt: new Date().toISOString() })
+      .eq('id', id).select('*, client:clients(name)').single()
+    if (error) throw new Error(error.message)
+    return data
+  }
+
+  async remove(companyId: string, id: string) {
+    const { data: existing, error: findErr } = await this.sb.from('financial_transactions')
+      .select('id').eq('id', id).eq('companyId', companyId).single()
+    if (findErr || !existing) throw new NotFoundException('Lançamento não encontrado')
+
+    const { error } = await this.sb.from('financial_transactions').delete().eq('id', id)
+    if (error) throw new Error(error.message)
   }
 }

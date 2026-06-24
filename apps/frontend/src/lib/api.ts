@@ -169,10 +169,12 @@ export const processes = {
 export const financial = {
   dashboard: () => request<FinancialDashboard>('/financial/dashboard'),
   monthlyHistory: () => request<{ month: string; receita: number; despesas: number; lucro: number }[]>('/financial/monthly-history'),
-  list: (params?: { type?: string; search?: string; clientId?: string }) => {
+  list: (params?: { type?: string; search?: string; clientId?: string; status?: string; dateFrom?: string; dateTo?: string; category?: string }) => {
     return request<Transaction[]>(`/financial${toQS(params)}`)
   },
   create: (data: Partial<Transaction> & { clientId?: string }) => request<Transaction>('/financial', { method: 'POST', body: data }),
+  update: (id: string, data: Partial<Transaction>) => request<Transaction>(`/financial/${id}`, { method: 'PATCH', body: data }),
+  remove: (id: string) => request<void>(`/financial/${id}`, { method: 'DELETE' }),
 }
 
 // ─── Assinaturas / Planos ────────────────────────────────────────────────────
