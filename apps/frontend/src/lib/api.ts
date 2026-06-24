@@ -57,7 +57,7 @@ async function tryRefresh(): Promise<string | null> {
     const data = await res.json()
     localStorage.setItem('accessToken', data.accessToken)
     localStorage.setItem('refreshToken', data.refreshToken)
-    document.cookie = `accessToken=${data.accessToken}; path=/; max-age=900`
+    document.cookie = `accessToken=${data.accessToken}; path=/; max-age=604800; SameSite=Lax`
     return data.accessToken
   } catch {
     return null

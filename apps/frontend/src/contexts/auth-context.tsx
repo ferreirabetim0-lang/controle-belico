@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('refreshToken', data.refreshToken)
     localStorage.setItem('user', JSON.stringify(data.user))
     // Cookie para o middleware SSR conseguir verificar autenticação
-    document.cookie = `accessToken=${data.accessToken}; path=/; max-age=900; SameSite=Lax`
+    document.cookie = `accessToken=${data.accessToken}; path=/; max-age=604800; SameSite=Lax`
     setUser(data.user)
     router.push('/dashboard')
   }
