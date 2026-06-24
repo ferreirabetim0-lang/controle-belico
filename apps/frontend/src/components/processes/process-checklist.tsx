@@ -530,13 +530,17 @@ function StepRow({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+function normalizeSteps(raw: Process['steps']) {
+  return (raw ?? [])
+    .map((s) => ({ ...s, metadata: (s as any).metadata ?? {} }))
+    .sort((a, b) => a.order - b.order)
+}
+
 export function ProcessChecklist({ process, onUpdate }: { process: Process; onUpdate?: () => void }) {
-  const [steps, setSteps] = useState(
-    (process.steps ?? []).map((s) => ({ ...s, metadata: (s as any).metadata ?? {} }))
-  )
+  const [steps, setSteps] = useState(() => normalizeSteps(process.steps))
 
   useEffect(() => {
-    setSteps((process.steps ?? []).map((s) => ({ ...s, metadata: (s as any).metadata ?? {} })))
+    setSteps(normalizeSteps(process.steps))
   }, [process.steps])
   const [showAll, setShowAll] = useState(false)
 
