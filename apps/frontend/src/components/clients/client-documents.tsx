@@ -1,22 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { Upload, FileText, CheckCircle2, AlertTriangle, Clock, Eye, Trash2 } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Upload, FileText, CheckCircle2, AlertTriangle, Clock, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
-const mockDocuments = [
-  { id: '1', category: 'Foto 3x4', name: 'foto_3x4.jpg', status: 'PENDING', uploadedAt: null, expiresAt: null },
-  { id: '2', category: 'RG', name: 'rg_frente.pdf', status: 'APPROVED', uploadedAt: '10/06/2026', expiresAt: null },
-  { id: '3', category: 'Comprovante de Endereço', name: 'comp_endereco.pdf', status: 'APPROVED', uploadedAt: '11/06/2026', expiresAt: '10/12/2026' },
-  { id: '4', category: 'Comprovante de Renda', name: null, status: 'PENDING', uploadedAt: null, expiresAt: null },
-  { id: '5', category: 'Exame Psicológico', name: 'laudo_psicologo.pdf', status: 'APPROVED', uploadedAt: '08/06/2026', expiresAt: '08/12/2026' },
-  { id: '6', category: 'Exame de Tiro', name: null, status: 'PENDING', uploadedAt: null, expiresAt: null },
-  { id: '7', category: 'Certidões Negativas', name: null, status: 'PENDING', uploadedAt: null, expiresAt: null },
-  { id: '8', category: 'Filiação ao Clube', name: null, status: 'PENDING', uploadedAt: null, expiresAt: null },
-  { id: '9', category: 'GRU', name: null, status: 'PENDING', uploadedAt: null, expiresAt: null },
-  { id: '10', category: 'Declaração Inquérito', name: 'decl_inquerito.pdf', status: 'APPROVED', uploadedAt: '12/06/2026', expiresAt: null },
-]
+type Doc = {
+  id: string
+  category: string
+  name?: string | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED'
+  uploadedAt?: string | null
+  expiresAt?: string | null
+}
 
 const statusConfig = {
   APPROVED: { label: 'Aprovado', icon: CheckCircle2, color: 'text-[#00C853]', bg: 'bg-[#00C853]/10', badge: 'success' as const },
@@ -25,13 +21,60 @@ const statusConfig = {
   EXPIRED: { label: 'Vencido', icon: Clock, color: 'text-[#D50000]', bg: 'bg-[#D50000]/10', badge: 'danger' as const },
 }
 
-export function ClientDocuments({ clientId }: { clientId: string }) {
-  const [docs, setDocs] = useState(mockDocuments)
+export function ClientDocuments({ clientId, documents }: { clientId: string; documents: Doc[] }) {
+  const [docs, setDocs] = useState<Doc[]>(documents)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadTarget, setUploadTarget] = useState<string | null>(null)
+
   const received = docs.filter((d) => d.status === 'APPROVED').length
+
+  function handleUploadClick(docId?: string) {
+    setUploadTarget(docId ?? null)
+    fileInputRef.current?.click()
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (uploadTarget) {
+      setDocs((prev) =>
+        prev.map((d) =>
+          d.id === uploadTarget
+            ? { ...d, name: file.name, status: 'PENDING', uploadedAt: new Date().toLocaleDateString('pt-BR') }
+            : d
+        )
+      )
+    } else {
+      const newDoc: Doc = {
+        id: `local-${Date.now()}`,
+        category: 'Documento enviado',
+        name: file.name,
+        status: 'PENDING',
+        uploadedAt: new Date().toLocaleDateString('pt-BR'),
+      }
+      setDocs((prev) => [...prev, newDoc])
+    }
+    e.target.value = ''
+    setUploadTarget(null)
+  }
+
+  if (docs.length === 0) {
+    return (
+      <div className="py-16 text-center text-muted-foreground space-y-4">
+        <FileText className="w-12 h-12 mx-auto opacity-20" />
+        <p className="text-sm">Nenhum documento cadastrado</p>
+        <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={() => handleUploadClick()}>
+          <Upload className="w-4 h-4" /> Enviar primeiro documento
+        </Button>
+        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
-      {/* Summary */}
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-card rounded-xl p-4 border border-border text-center">
           <div className="text-2xl font-bold text-foreground">{docs.length}</div>
@@ -47,28 +90,20 @@ export function ClientDocuments({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      {/* Upload button */}
-      <Button className="gap-2 bg-[#0B2545] hover:bg-[#13315C]">
+      <Button className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={() => handleUploadClick()}>
         <Upload className="w-4 h-4" /> Enviar Documento
       </Button>
 
-      {/* Document list */}
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
         <div className="divide-y divide-border">
           {docs.map((doc) => {
-            const config = statusConfig[doc.status as keyof typeof statusConfig]
+            const config = statusConfig[doc.status] ?? statusConfig.PENDING
             const StatusIcon = config.icon
-
             return (
               <div key={doc.id} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/20 transition-colors">
                 <div className={`w-9 h-9 ${config.bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                  {doc.name ? (
-                    <FileText className={`w-4 h-4 ${config.color}`} />
-                  ) : (
-                    <StatusIcon className={`w-4 h-4 ${config.color}`} />
-                  )}
+                  {doc.name ? <FileText className={`w-4 h-4 ${config.color}`} /> : <StatusIcon className={`w-4 h-4 ${config.color}`} />}
                 </div>
-
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-foreground">{doc.category}</div>
                   {doc.name ? (
@@ -77,23 +112,19 @@ export function ClientDocuments({ clientId }: { clientId: string }) {
                     <div className="text-xs text-[#D50000]">Aguardando envio</div>
                   )}
                 </div>
-
                 {doc.expiresAt && (
                   <div className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
-                    <Clock className="w-3 h-3" />
-                    Vence em {doc.expiresAt}
+                    <Clock className="w-3 h-3" /> Vence em {doc.expiresAt}
                   </div>
                 )}
-
                 <Badge variant={config.badge}>{config.label}</Badge>
-
                 <div className="flex gap-1">
                   {doc.name && (
-                    <Button variant="ghost" size="icon" className="w-7 h-7 rounded-lg">
+                    <Button variant="ghost" size="icon" className="w-7 h-7 rounded-lg" title="Visualizar">
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" className="w-7 h-7 rounded-lg">
+                  <Button variant="ghost" size="icon" className="w-7 h-7 rounded-lg" title="Enviar arquivo" onClick={() => handleUploadClick(doc.id)}>
                     <Upload className="w-3.5 h-3.5" />
                   </Button>
                 </div>

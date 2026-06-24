@@ -4,67 +4,18 @@ import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, Mail, MapPin, Edit, Plus, FileText,
-  CheckCircle2, Clock, AlertTriangle, MessageSquare, Trash2,
-  User, Calendar, Tag, Shield, DollarSign,
+  Clock, AlertTriangle, MessageSquare, Trash2,
+  User, Calendar, Shield, DollarSign, Loader2, X, Search,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { getInitials, formatCPF, formatDate } from '@/lib/utils'
+import { getInitials, formatCurrency } from '@/lib/utils'
 import { ProcessChecklist } from '@/components/processes/process-checklist'
 import { ClientDocuments } from '@/components/clients/client-documents'
 import { ClientTimeline } from '@/components/clients/client-timeline'
 import { ClientFinancial } from '@/components/clients/client-financial'
-
-// Mock data — em produção viria da API
-const mockClient = {
-  id: '1',
-  name: 'João Carlos Mendes',
-  cpf: '123.456.789-00',
-  rg: 'MG-12.345.678',
-  birthDate: '1985-03-15',
-  phone: '(11) 99999-0001',
-  whatsapp: '(11) 99999-0001',
-  email: 'joao.mendes@email.com',
-  city: 'São Paulo',
-  state: 'SP',
-  address: 'Rua das Flores, 123 — Jardim Paulista',
-  profession: 'Empresário',
-  status: 'CR',
-  responsible: 'Admin',
-  leadSource: 'Indicação',
-  tags: ['CAC', 'Prioritário'],
-  observations: 'Cliente indicado pelo João Silva. Possui urgência no processo.',
-  createdAt: '2026-06-15',
-  activeProcesses: [
-    {
-      id: 'p1',
-      type: 'CR',
-      status: 'IN_PROGRESS',
-      progress: 72,
-      startedAt: '2026-06-15',
-      steps: [
-        { key: 'payment', name: 'Pagamento Recebido', completed: true, completedAt: '2026-06-15' },
-        { key: 'photo_3x4', name: 'Foto 3x4', completed: false },
-        { key: 'gov_password', name: 'Senha GOV', completed: true, completedAt: '2026-06-16' },
-        { key: 'initial_registration', name: 'Cadastro Inicial', completed: true, completedAt: '2026-06-17' },
-        { key: 'rg_cnh', name: 'RG ou CNH', completed: true, completedAt: '2026-06-17' },
-        { key: 'proof_address', name: 'Comprovante de Endereço', completed: true, completedAt: '2026-06-18' },
-        { key: 'proof_income', name: 'Comprovante de Renda', completed: false },
-        { key: 'psych_schedule', name: 'Agendamento Psicológico', completed: true, completedAt: '2026-06-19' },
-        { key: 'shooting_schedule', name: 'Agendamento Tiro', completed: false },
-        { key: 'declaration_inquiry', name: 'Declaração Inquérito', completed: true, completedAt: '2026-06-20' },
-        { key: 'declaration_storage', name: 'Declaração Guarda Acervo', completed: true, completedAt: '2026-06-20' },
-        { key: 'club_membership', name: 'Filiação ao Clube', completed: false },
-        { key: 'certifications', name: 'Certidões Negativas', completed: false },
-        { key: 'gru', name: 'GRU Paga', completed: false },
-        { key: 'sent_analysis', name: 'Enviado para Análise', completed: false },
-        { key: 'in_queue', name: 'Em Fila', completed: false },
-        { key: 'in_analysis', name: 'Em Análise', completed: false },
-        { key: 'approved', name: 'Deferido', completed: false },
-      ],
-    },
-  ],
-}
+import { useApi } from '@/hooks/use-api'
+import { clients, processes as processesApi, type Process, type Transaction } from '@/lib/api'
 
 const tabs = [
   { id: 'overview', label: 'Visão Geral', icon: User },
@@ -74,60 +25,259 @@ const tabs = [
   { id: 'timeline', label: 'Timeline', icon: Clock },
 ]
 
-const statusConfig: Record<string, { label: string; variant: 'info' | 'warning' | 'success' | 'secondary' }> = {
+const statusConfig: Record<string, { label: string; variant: 'info' | 'warning' | 'success' | 'secondary' | 'danger' }> = {
+  LEAD: { label: 'Lead', variant: 'secondary' },
+  CONTACT: { label: 'Contato', variant: 'secondary' },
+  NEGOTIATION: { label: 'Negociação', variant: 'secondary' },
+  PAYMENT: { label: 'Pagamento', variant: 'warning' },
+  DOCUMENTATION: { label: 'Documentação', variant: 'secondary' },
   CR: { label: 'CR', variant: 'info' },
   CRAF: { label: 'CRAF', variant: 'warning' },
   GT: { label: 'GT', variant: 'success' },
-  Lead: { label: 'Lead', variant: 'secondary' },
-  Documentação: { label: 'Documentação', variant: 'secondary' },
+  COMPLETED: { label: 'Finalizado', variant: 'success' },
+  ARCHIVED: { label: 'Arquivado', variant: 'secondary' },
+  LOST: { label: 'Perdido', variant: 'danger' },
+}
+
+const inputCls = 'w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
+
+function NovoProcessoModal({ clientId, clientName, onClose, onSuccess }: {
+  clientId: string; clientName: string; onClose: () => void; onSuccess: () => void
+}) {
+  const [type, setType] = useState<'CR' | 'CRAF' | 'GT'>('CR')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await processesApi.create({ clientId, type })
+      onSuccess()
+      onClose()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar processo')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card w-full max-w-sm rounded-2xl border border-border shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div>
+            <h2 className="font-bold text-foreground">Novo Processo</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{clientName}</p>
+          </div>
+          <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-2 block">TIPO DE PROCESSO *</label>
+            <div className="flex gap-2">
+              {(['CR', 'CRAF', 'GT'] as const).map((t) => (
+                <button type="button" key={t} onClick={() => setType(t)}
+                  className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all ${type === t ? 'border-[#0B2545] bg-[#0B2545] text-white' : 'border-border text-muted-foreground hover:border-[#0B2545]/40'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-xl">{error}</p>}
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={loading} className="flex-1 bg-[#0B2545] hover:bg-[#13315C]">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Criar Processo'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function EditClientModal({ client, onClose, onSuccess }: { client: any; onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState({
+    name: client.name ?? '',
+    phone: client.phone ?? '',
+    email: client.email ?? '',
+    city: client.city ?? '',
+    state: client.state ?? '',
+    rg: client.rg ?? '',
+    profession: client.profession ?? '',
+    observations: client.observations ?? '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await clients.update(client.id, form)
+      onSuccess()
+      onClose()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-border sticky top-0 bg-card">
+          <h2 className="font-bold text-foreground">Editar Cliente</h2>
+          <button onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">NOME *</label>
+              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">TELEFONE</label>
+              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">RG</label>
+              <input value={form.rg} onChange={(e) => setForm({ ...form, rg: e.target.value })} className={inputCls} />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">E-MAIL</label>
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">CIDADE</label>
+              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">ESTADO</label>
+              <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} maxLength={2} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">PROFISSÃO</label>
+              <input value={form.profession} onChange={(e) => setForm({ ...form, profession: e.target.value })} className={inputCls} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">OBSERVAÇÕES</label>
+            <textarea rows={3} value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} className={`${inputCls} resize-none`} />
+          </div>
+          {error && <p className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-xl">{error}</p>}
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={loading} className="flex-1 bg-[#0B2545] hover:bg-[#13315C]">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar Alterações'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 export default function ClientDetailPage() {
   const router = useRouter()
-  const params = useParams()
+  const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState('overview')
-  const client = mockClient
+  const [showProcessModal, setShowProcessModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const { data: client, loading, error } = useApi(() => clients.get(id), [id, refreshKey])
+
+  async function handleArchive() {
+    if (!confirm(`Arquivar "${client?.name}"? Esta ação pode ser revertida.`)) return
+    try {
+      await clients.archive(id)
+      router.push('/clients')
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Erro ao arquivar')
+    }
+  }
+
+  function handleWhatsApp() {
+    const phone = client?.phone?.replace(/\D/g, '') || client?.whatsapp?.replace(/\D/g, '')
+    if (!phone) return alert('Cliente sem telefone cadastrado')
+    window.open(`https://wa.me/55${phone}`, '_blank')
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32 gap-3 text-muted-foreground">
+        <Loader2 className="w-6 h-6 animate-spin" />
+        <span>Carregando cliente...</span>
+      </div>
+    )
+  }
+
+  if (error || !client) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 gap-4 text-muted-foreground">
+        <AlertTriangle className="w-10 h-10 text-[#D50000]" />
+        <p className="text-sm">{error ?? 'Cliente não encontrado'}</p>
+        <Button variant="outline" onClick={() => router.back()}>Voltar</Button>
+      </div>
+    )
+  }
+
+  const processes: Process[] = (client as any).processes ?? []
+  const activeProcess = processes.find((p) => p.status === 'IN_PROGRESS') ?? processes[0]
+  const statusCfg = statusConfig[client.status] ?? { label: client.status, variant: 'secondary' as const }
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {showProcessModal && (
+        <NovoProcessoModal
+          clientId={id} clientName={client.name}
+          onClose={() => setShowProcessModal(false)}
+          onSuccess={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+      {showEditModal && (
+        <EditClientModal
+          client={client}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-xl">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">{client.name}</h1>
-            <Badge variant={statusConfig[client.status]?.variant ?? 'secondary'}>
-              {statusConfig[client.status]?.label ?? client.status}
-            </Badge>
-            {client.tags.map((tag) => (
-              <span key={tag} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-medium">
-                {tag}
-              </span>
-            ))}
+            <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
           </div>
           <p className="text-muted-foreground text-sm mt-0.5">
-            CPF: {client.cpf} · Cadastrado em {client.createdAt} · Responsável: {client.responsible}
+            CPF: {client.cpf} · Cadastrado em {new Date(client.createdAt).toLocaleDateString('pt-BR')}
+            {(client as any).responsible?.name && ` · Responsável: ${(client as any).responsible.name}`}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleWhatsApp}>
             <MessageSquare className="w-4 h-4 text-[#00C853]" /> WhatsApp
           </Button>
-          <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]">
+          <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowEditModal(true)}>
             <Edit className="w-4 h-4" /> Editar
           </Button>
         </div>
       </div>
 
-      {/* Info cards row */}
+      {/* Info cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { icon: Phone, label: 'Telefone', value: client.phone },
           { icon: Mail, label: 'E-mail', value: client.email },
-          { icon: MapPin, label: 'Cidade', value: `${client.city} — ${client.state}` },
-          { icon: Calendar, label: 'Nascimento', value: client.birthDate },
+          { icon: MapPin, label: 'Cidade', value: client.city ? `${client.city}${client.state ? ` — ${client.state}` : ''}` : null },
+          { icon: Calendar, label: 'Cadastro', value: new Date(client.createdAt).toLocaleDateString('pt-BR') },
         ].map((item) => (
           <div key={item.label} className="bg-card rounded-xl p-4 border border-border flex items-center gap-3">
             <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
@@ -141,44 +291,34 @@ export default function ClientDetailPage() {
         ))}
       </div>
 
-      {/* Progress bar for active process */}
-      {client.activeProcesses.length > 0 && (
+      {/* Active process progress bar */}
+      {activeProcess && (
         <div className="bg-gradient-to-r from-[#0B2545] to-[#134074] rounded-2xl p-5 text-white">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-[#3E92CC]" />
-              <span className="font-semibold">Processo CR em andamento</span>
+              <span className="font-semibold">Processo {activeProcess.type} em andamento</span>
             </div>
-            <span className="text-2xl font-extrabold text-[#3E92CC]">{client.activeProcesses[0].progress}%</span>
+            <span className="text-2xl font-extrabold text-[#3E92CC]">{activeProcess.progress}%</span>
           </div>
           <div className="w-full bg-white/20 rounded-full h-2.5 mb-2">
-            <div
-              className="bg-gradient-to-r from-[#3E92CC] to-[#00C853] h-2.5 rounded-full transition-all duration-500"
-              style={{ width: `${client.activeProcesses[0].progress}%` }}
-            />
+            <div className="bg-gradient-to-r from-[#3E92CC] to-[#00C853] h-2.5 rounded-full transition-all duration-500"
+              style={{ width: `${activeProcess.progress}%` }} />
           </div>
-          <div className="flex items-center justify-between text-white/60 text-xs">
-            <span>
-              {client.activeProcesses[0].steps.filter((s) => s.completed).length} de {client.activeProcesses[0].steps.length} etapas concluídas
-            </span>
-            <span>Iniciado em {client.activeProcesses[0].startedAt}</span>
+          <div className="text-white/60 text-xs">
+            {(activeProcess.steps ?? []).filter((s) => s.isCompleted).length} de {(activeProcess.steps ?? []).length} etapas concluídas
           </div>
         </div>
       )}
 
       {/* Tabs */}
       <div className="border-b border-border">
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto">
           {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all ${
-                activeTab === tab.id
-                  ? 'border-[#3E92CC] text-[#3E92CC]'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+                activeTab === tab.id ? 'border-[#3E92CC] text-[#3E92CC]' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}>
               <tab.icon className="w-4 h-4" />
               {tab.label}
             </button>
@@ -188,44 +328,68 @@ export default function ClientDetailPage() {
 
       {/* Tab content */}
       <div>
-        {activeTab === 'overview' && <ClientOverview client={client} />}
-        {activeTab === 'processes' && <ProcessChecklist process={client.activeProcesses[0]} />}
-        {activeTab === 'documents' && <ClientDocuments clientId={client.id} />}
-        {activeTab === 'financial' && <ClientFinancial clientId={client.id} />}
-        {activeTab === 'timeline' && <ClientTimeline clientId={client.id} />}
+        {activeTab === 'overview' && (
+          <ClientOverview
+            client={client}
+            onNewProcess={() => setShowProcessModal(true)}
+            onArchive={handleArchive}
+            onWhatsApp={handleWhatsApp}
+            processes={processes}
+          />
+        )}
+        {activeTab === 'processes' && (
+          activeProcess
+            ? <ProcessChecklist process={activeProcess} onUpdate={() => setRefreshKey((k) => k + 1)} />
+            : (
+              <div className="py-16 text-center text-muted-foreground space-y-3">
+                <Shield className="w-10 h-10 mx-auto opacity-20" />
+                <p className="text-sm">Nenhum processo ativo</p>
+                <Button size="sm" className="bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowProcessModal(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Criar Processo
+                </Button>
+              </div>
+            )
+        )}
+        {activeTab === 'documents' && (
+          <ClientDocuments clientId={id} documents={(client as any).documents ?? []} />
+        )}
+        {activeTab === 'financial' && (
+          <ClientFinancial clientId={id} transactions={(client as any).transactions ?? []} />
+        )}
+        {activeTab === 'timeline' && (
+          <ClientTimeline clientId={id} timeline={(client as any).timeline ?? []} />
+        )}
       </div>
     </div>
   )
 }
 
-function ClientOverview({ client }: { client: typeof mockClient }) {
-  const pendingSteps = client.activeProcesses[0]?.steps.filter((s) => !s.completed) ?? []
+function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes }: {
+  client: any; onNewProcess: () => void; onArchive: () => void; onWhatsApp: () => void; processes: Process[]
+}) {
+  const pendingSteps = processes.flatMap((p) => (p.steps ?? []).filter((s) => !s.isCompleted))
+  const daysAsClient = Math.floor((Date.now() - new Date(client.createdAt).getTime()) / 86400000)
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
-      {/* Main info */}
       <div className="lg:col-span-2 space-y-6">
-        {/* Pending steps alert */}
         {pendingSteps.length > 0 && (
           <div className="bg-[#D50000]/5 border border-[#D50000]/20 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-[#D50000]" />
-              <h3 className="font-bold text-[#D50000]">
-                {pendingSteps.length} pendência{pendingSteps.length > 1 ? 's' : ''} no processo
-              </h3>
+              <h3 className="font-bold text-[#D50000]">{pendingSteps.length} pendência{pendingSteps.length > 1 ? 's' : ''} no processo</h3>
             </div>
             <div className="grid sm:grid-cols-2 gap-2">
-              {pendingSteps.map((step) => (
-                <div key={step.key} className="flex items-center gap-2 text-sm text-foreground">
+              {pendingSteps.slice(0, 8).map((step) => (
+                <div key={step.stepKey} className="flex items-center gap-2 text-sm text-foreground">
                   <div className="w-4 h-4 rounded border-2 border-[#D50000]/40 flex-shrink-0" />
-                  {step.name}
+                  {step.stepName}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Personal data */}
         <div className="bg-card rounded-2xl p-6 border border-border">
           <h3 className="font-bold text-foreground mb-5">Dados Pessoais</h3>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -233,10 +397,12 @@ function ClientOverview({ client }: { client: typeof mockClient }) {
               { label: 'Nome completo', value: client.name },
               { label: 'CPF', value: client.cpf },
               { label: 'RG', value: client.rg },
-              { label: 'Data de nascimento', value: client.birthDate },
-              { label: 'Profissão', value: client.profession },
-              { label: 'Origem do lead', value: client.leadSource },
+              { label: 'Telefone', value: client.phone },
+              { label: 'E-mail', value: client.email },
+              { label: 'Cidade / Estado', value: client.city ? `${client.city}${client.state ? ` / ${client.state}` : ''}` : null },
               { label: 'Endereço', value: client.address },
+              { label: 'Profissão', value: client.profession },
+              { label: 'Origem', value: client.leadSource },
             ].map((item) => (
               <div key={item.label}>
                 <div className="text-xs text-muted-foreground mb-1">{item.label}</div>
@@ -246,7 +412,6 @@ function ClientOverview({ client }: { client: typeof mockClient }) {
           </div>
         </div>
 
-        {/* Observations */}
         {client.observations && (
           <div className="bg-card rounded-2xl p-6 border border-border">
             <h3 className="font-bold text-foreground mb-3">Observações</h3>
@@ -255,36 +420,29 @@ function ClientOverview({ client }: { client: typeof mockClient }) {
         )}
       </div>
 
-      {/* Sidebar */}
       <div className="space-y-4">
-        {/* Quick actions */}
         <div className="bg-card rounded-2xl p-5 border border-border">
           <h3 className="font-bold text-foreground mb-4 text-sm">Ações Rápidas</h3>
           <div className="space-y-2">
-            <Button className="w-full justify-start gap-2 bg-[#0B2545] hover:bg-[#13315C] text-sm">
+            <Button className="w-full justify-start gap-2 bg-[#0B2545] hover:bg-[#13315C] text-sm" onClick={onNewProcess}>
               <Plus className="w-4 h-4" /> Novo Processo
             </Button>
-            <Button variant="outline" className="w-full justify-start gap-2 text-sm">
-              <FileText className="w-4 h-4" /> Upload Documento
-            </Button>
-            <Button variant="outline" className="w-full justify-start gap-2 text-sm text-[#00C853] border-[#00C853]/30 hover:bg-[#00C853]/5">
+            <Button variant="outline" className="w-full justify-start gap-2 text-sm text-[#00C853] border-[#00C853]/30 hover:bg-[#00C853]/5" onClick={onWhatsApp}>
               <MessageSquare className="w-4 h-4" /> Enviar WhatsApp
             </Button>
-            <Button variant="outline" className="w-full justify-start gap-2 text-sm text-[#D50000] border-[#D50000]/30 hover:bg-[#D50000]/5">
+            <Button variant="outline" className="w-full justify-start gap-2 text-sm text-[#D50000] border-[#D50000]/30 hover:bg-[#D50000]/5" onClick={onArchive}>
               <Trash2 className="w-4 h-4" /> Arquivar Cliente
             </Button>
           </div>
         </div>
 
-        {/* Stats */}
         <div className="bg-card rounded-2xl p-5 border border-border">
           <h3 className="font-bold text-foreground mb-4 text-sm">Resumo</h3>
           <div className="space-y-3">
             {[
-              { label: 'Processos ativos', value: '1' },
-              { label: 'Documentos enviados', value: '6' },
-              { label: 'Total pago', value: 'R$ 850,00' },
-              { label: 'Dias como cliente', value: '37' },
+              { label: 'Processos', value: String(processes.length) },
+              { label: 'Processos ativos', value: String(processes.filter((p) => p.status === 'IN_PROGRESS').length) },
+              { label: 'Dias como cliente', value: String(daysAsClient) },
             ].map((item) => (
               <div key={item.label} className="flex justify-between">
                 <span className="text-xs text-muted-foreground">{item.label}</span>
