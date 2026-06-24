@@ -206,7 +206,7 @@ export default function ClientDetailPage() {
     window.open(`https://wa.me/55${phone}`, '_blank')
   }
 
-  if (loading) {
+  if (loading && !client) {
     return (
       <div className="flex items-center justify-center py-32 gap-3 text-muted-foreground">
         <Loader2 className="w-6 h-6 animate-spin" />
