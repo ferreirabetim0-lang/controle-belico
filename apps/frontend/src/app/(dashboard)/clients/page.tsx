@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Search, Plus, Filter, Download, Loader2, X } from 'lucide-react'
+import { Search, Plus, Filter, Download, Loader2, X, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
@@ -95,12 +96,28 @@ function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 }
 
 export default function ClientsPage() {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [dateRange, setDateRange] = useState<DateRange | null>(null)
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function handleDelete(e: React.MouseEvent, id: string, name: string) {
+    e.stopPropagation()
+    if (!confirm(`Excluir "${name}"? Esta ação pode ser revertida.`)) return
+    setDeletingId(id)
+    try {
+      await clients.archive(id)
+      setRefreshKey((k) => k + 1)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Erro ao excluir cliente')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const { data, loading, error } = useApi(
     () => clients.list({ search: search || undefined, status: statusFilter || undefined, page, limit: 20 }),
@@ -184,7 +201,7 @@ export default function ClientsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  {['Cliente', 'CPF', 'Telefone', 'Cidade', 'Status', 'Responsável', 'Cadastro', ''].map((h) => (
+                  {['Cliente', 'CPF', 'Telefone', 'Cidade', 'Status', 'Responsável', 'Cadastro'].map((h) => (
                     <th key={h} className="px-4 py-3.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {h}
                     </th>
@@ -195,13 +212,28 @@ export default function ClientsPage() {
                 {clientList.map((client) => {
                   const config = statusConfig[client.status]
                   return (
-                    <tr key={client.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors cursor-pointer">
+                    <tr
+                      key={client.id}
+                      onClick={() => router.push(`/clients/${client.id}`)}
+                      className="group border-b border-border last:border-0 hover:bg-muted/20 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-gradient-to-br from-[#0B2545] to-[#3E92CC] rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                             {getInitials(client.name)}
                           </div>
                           <span className="text-sm font-medium text-foreground">{client.name}</span>
+                          <button
+                            onClick={(e) => handleDelete(e, client.id, client.name)}
+                            disabled={deletingId === client.id}
+                            className="ml-1 w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-[#D50000] hover:bg-[#D50000]/10 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            title="Excluir cliente"
+                          >
+                            {deletingId === client.id
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <Trash2 className="w-3.5 h-3.5" />
+                            }
+                          </button>
                         </div>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-muted-foreground">{client.cpf}</td>
@@ -215,13 +247,6 @@ export default function ClientsPage() {
                       </td>
                       <td className="px-4 py-3.5 text-sm text-muted-foreground">
                         {new Date(client.createdAt).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <Link href={`/clients/${client.id}`}>
-                          <Button variant="ghost" size="sm" className="text-xs text-[#3E92CC] hover:text-[#3E92CC]">
-                            Ver detalhes →
-                          </Button>
-                        </Link>
                       </td>
                     </tr>
                   )
