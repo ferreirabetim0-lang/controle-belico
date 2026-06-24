@@ -78,10 +78,20 @@ export type Client = {
   createdAt: string; updatedAt: string; responsible?: { name: string }
 }
 
+export type StepMeta = {
+  govPassword?: string
+  schedulingDate?: string; schedulingTime?: string; schedulingLocation?: string
+  certifications?: string[]
+  addressOwner?: 'client' | 'third_party'
+  addressDeclarationDoc?: { id: string; name: string; url: string } | null
+  observations?: string
+  documents?: { id: string; name: string; url: string; size: number; type: string; uploadedAt: string }[]
+}
+
 export type Process = {
   id: string; clientId: string; type: 'CR' | 'CRAF' | 'GT'; status: string
   progress: number; createdAt: string; client?: { name: string }
-  steps?: { stepKey: string; stepName: string; isCompleted: boolean; order: number }[]
+  steps?: { stepKey: string; stepName: string; isCompleted: boolean; order: number; metadata?: StepMeta }[]
 }
 
 export type Transaction = {
@@ -148,6 +158,10 @@ export const processes = {
     request<Process>('/processes', { method: 'POST', body: data }),
   completeStep: (processId: string, stepKey: string) =>
     request<{ progress: number; completed: number; total: number }>(`/processes/${processId}/steps/${stepKey}`, { method: 'PATCH' }),
+  uncompleteStep: (processId: string, stepKey: string) =>
+    request<{ progress: number; completed: number; total: number }>(`/processes/${processId}/steps/${stepKey}/complete`, { method: 'DELETE' }),
+  updateStepMetadata: (processId: string, stepKey: string, metadata: StepMeta) =>
+    request<{ ok: boolean }>(`/processes/${processId}/steps/${stepKey}/metadata`, { method: 'PATCH', body: metadata }),
 }
 
 // ─── Financeiro ───────────────────────────────────────────────────────────────

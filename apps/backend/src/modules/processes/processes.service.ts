@@ -46,6 +46,18 @@ const GT_STEPS = [
 
 const STEPS_MAP: Record<string, typeof CR_STEPS> = { CR: CR_STEPS, CRAF: CRAF_STEPS, GT: GT_STEPS }
 
+export type StepMetadata = {
+  govPassword?: string
+  schedulingDate?: string
+  schedulingTime?: string
+  schedulingLocation?: string
+  certifications?: string[]
+  addressOwner?: 'client' | 'third_party'
+  observations?: string
+  documents?: { id: string; name: string; url: string; size: number; type: string; uploadedAt: string }[]
+  addressDeclarationDoc?: { id: string; name: string; url: string } | null
+}
+
 @Injectable()
 export class ProcessesService {
   constructor(private sb: SupabaseService) {}
@@ -73,7 +85,7 @@ export class ProcessesService {
 
     const steps = STEPS_MAP[type].map((s) => ({
       id: uuidv4(), processId, stepKey: s.stepKey, stepName: s.stepName,
-      order: s.order, isCompleted: false, required: true,
+      order: s.order, isCompleted: false, required: true, metadata: {},
     }))
 
     await this.sb.from('process_steps').insert(steps)
@@ -83,27 +95,107 @@ export class ProcessesService {
   }
 
   async completeStep(companyId: string, processId: string, stepKey: string, userId: string) {
-    const { data: process } = await this.sb.from('processes')
-      .select('id').eq('id', processId).eq('companyId', companyId).single()
-
-    if (!process) throw new NotFoundException('Processo não encontrado')
-
+    await this._assertProcess(companyId, processId)
     const now = new Date().toISOString()
+
     await this.sb.from('process_steps')
       .update({ isCompleted: true, completedAt: now, completedBy: userId })
       .eq('processId', processId).eq('stepKey', stepKey)
 
+    return this._recalcProgress(processId)
+  }
+
+  async uncompleteStep(companyId: string, processId: string, stepKey: string) {
+    await this._assertProcess(companyId, processId)
+
+    await this.sb.from('process_steps')
+      .update({ isCompleted: false, completedAt: null, completedBy: null })
+      .eq('processId', processId).eq('stepKey', stepKey)
+
+    return this._recalcProgress(processId)
+  }
+
+  async updateStepMetadata(companyId: string, processId: string, stepKey: string, metadata: StepMetadata) {
+    await this._assertProcess(companyId, processId)
+
+    const { error } = await this.sb.from('process_steps')
+      .update({ metadata })
+      .eq('processId', processId).eq('stepKey', stepKey)
+
+    if (error) throw new Error(error.message)
+    return { ok: true }
+  }
+
+  async uploadStepFile(
+    companyId: string, processId: string, stepKey: string,
+    fileName: string, fileBuffer: Buffer, mimeType: string,
+  ) {
+    await this._assertProcess(companyId, processId)
+
+    const fileId = uuidv4()
+    const ext = fileName.split('.').pop()
+    const storagePath = `process-steps/${processId}/${stepKey}/${fileId}.${ext}`
+
+    const { error: uploadError } = await this.sb.db.storage
+      .from('documents')
+      .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: false })
+
+    if (uploadError) throw new Error(uploadError.message)
+
+    const { data: urlData } = this.sb.db.storage.from('documents').getPublicUrl(storagePath)
+
+    const { data: step } = await this.sb.from('process_steps')
+      .select('metadata').eq('processId', processId).eq('stepKey', stepKey).single()
+
+    const meta: StepMetadata = (step?.metadata as StepMetadata) ?? {}
+    const docs = meta.documents ?? []
+    docs.push({ id: fileId, name: fileName, url: urlData.publicUrl, size: fileBuffer.length, type: mimeType, uploadedAt: new Date().toISOString() })
+
+    await this.sb.from('process_steps').update({ metadata: { ...meta, documents: docs } })
+      .eq('processId', processId).eq('stepKey', stepKey)
+
+    return { id: fileId, name: fileName, url: urlData.publicUrl }
+  }
+
+  async deleteStepFile(companyId: string, processId: string, stepKey: string, fileId: string) {
+    await this._assertProcess(companyId, processId)
+
+    const { data: step } = await this.sb.from('process_steps')
+      .select('metadata').eq('processId', processId).eq('stepKey', stepKey).single()
+
+    const meta: StepMetadata = (step?.metadata as StepMetadata) ?? {}
+    const file = (meta.documents ?? []).find((d) => d.id === fileId)
+    if (!file) throw new NotFoundException('Arquivo não encontrado')
+
+    const ext = file.name.split('.').pop()
+    const storagePath = `process-steps/${processId}/${stepKey}/${fileId}.${ext}`
+    await this.sb.db.storage.from('documents').remove([storagePath])
+
+    const docs = (meta.documents ?? []).filter((d) => d.id !== fileId)
+    await this.sb.from('process_steps').update({ metadata: { ...meta, documents: docs } })
+      .eq('processId', processId).eq('stepKey', stepKey)
+
+    return { ok: true }
+  }
+
+  private async _assertProcess(companyId: string, processId: string) {
+    const { data } = await this.sb.from('processes')
+      .select('id').eq('id', processId).eq('companyId', companyId).single()
+    if (!data) throw new NotFoundException('Processo não encontrado')
+  }
+
+  private async _recalcProgress(processId: string) {
     const { data: allSteps } = await this.sb.from('process_steps')
       .select('isCompleted').eq('processId', processId)
 
     const total = allSteps?.length ?? 0
     const completed = allSteps?.filter((s) => s.isCompleted).length ?? 0
-    const progress = Math.round((completed / total) * 100)
+    const progress = total ? Math.round((completed / total) * 100) : 0
 
     await this.sb.from('processes').update({
-      progress, updatedAt: now,
+      progress, updatedAt: new Date().toISOString(),
       status: progress === 100 ? 'COMPLETED' : 'IN_PROGRESS',
-      ...(progress === 100 && { completedAt: now }),
+      ...(progress === 100 && { completedAt: new Date().toISOString() }),
     }).eq('id', processId)
 
     return { progress, completed, total }
