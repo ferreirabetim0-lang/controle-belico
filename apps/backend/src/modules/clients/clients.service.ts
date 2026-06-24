@@ -35,7 +35,22 @@ export class ClientsService {
       .eq('id', id).eq('companyId', companyId).eq('isActive', true).single()
 
     if (error || !data) throw new NotFoundException('Cliente não encontrado')
-    return data
+
+    // Map observations -> metadata for process steps (same as processes.service)
+    const processes = (data.processes ?? []).map((p: any) => ({
+      ...p,
+      steps: (p.steps ?? []).map((s: any) => ({
+        ...s,
+        metadata: this._parseMeta(s.observations),
+      })),
+    }))
+
+    return { ...data, processes }
+  }
+
+  private _parseMeta(raw: string | null | undefined): Record<string, unknown> {
+    if (!raw) return {}
+    try { return JSON.parse(raw) } catch { return {} }
   }
 
   async create(companyId: string, userId: string, dto: CreateClientDto) {
