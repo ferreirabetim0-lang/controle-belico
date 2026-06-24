@@ -91,7 +91,7 @@ export class ProcessesService {
 
     const steps = STEPS_MAP[type].map((s) => ({
       id: uuidv4(), processId, stepKey: s.stepKey, stepName: s.stepName,
-      order: s.order, isCompleted: false, required: true, metadata: {},
+      order: s.order, isCompleted: false, required: true,
     }))
 
     await this.sb.from('process_steps').insert(steps)
