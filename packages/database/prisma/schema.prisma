@@ -1,0 +1,657 @@
+// Controle Bélico — Schema Prisma
+// SaaS Multiempresa para Despachantes Bélicos e Clubes de Tiro
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Seed: npx prisma db seed
+// Configurado em package.json → prisma.seed
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// PLANOS E ASSINATURAS
+// ============================================================
+
+enum PlanType {
+  STARTER
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  TRIAL
+  SUSPENDED
+  CANCELLED
+}
+
+model Plan {
+  id          String   @id @default(uuid())
+  name        String
+  type        PlanType
+  price       Decimal  @db.Decimal(10, 2)
+  maxClients  Int?     // null = ilimitado
+  maxUsers    Int?     // null = ilimitado
+  features    Json     // lista de features habilitadas
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id        String             @id @default(uuid())
+  companyId String
+  planId    String
+  status    SubscriptionStatus @default(TRIAL)
+  trialEndsAt DateTime?
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelledAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan    Plan    @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+// ============================================================
+// EMPRESAS (MULTITENANCY)
+// ============================================================
+
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  cnpj        String?  @unique
+  email       String
+  phone       String?
+  logo        String?
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  isActive    Boolean  @default(true)
+  settings    Json?    // configurações da empresa
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscription   Subscription[]
+  users          User[]
+  clients        Client[]
+  processes      Process[]
+  transactions   FinancialTransaction[]
+  expenses       Expense[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  whatsappMessages WhatsAppMessage[]
+  signatures     Signature[]
+  automationRules AutomationRule[]
+
+  @@map("companies")
+}
+
+// ============================================================
+// USUÁRIOS E PERMISSÕES
+// ============================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  DISPATCHER
+  FINANCIAL
+  ATTENDANT
+}
+
+model User {
+  id          String    @id @default(uuid())
+  companyId   String
+  name        String
+  email       String
+  password    String
+  role        UserRole  @default(ATTENDANT)
+  phone       String?
+  avatar      String?
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  permissions   Permission[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  assignedClients Client[]      @relation("ClientResponsible")
+  processActions ProcessAction[]
+  signatures    Signature[]
+
+  @@unique([email, companyId])
+  @@map("users")
+}
+
+model Permission {
+  id       String  @id @default(uuid())
+  userId   String
+  resource String  // ex: clients, processes, financial
+  action   String  // ex: create, read, update, delete
+  granted  Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resource, action])
+  @@map("permissions")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// CLIENTES
+// ============================================================
+
+enum ClientStatus {
+  LEAD
+  CONTACT
+  NEGOTIATION
+  PAYMENT
+  DOCUMENTATION
+  CR
+  CRAF
+  GT
+  COMPLETED
+  ARCHIVED
+  LOST
+}
+
+model Client {
+  id            String       @id @default(uuid())
+  companyId     String
+  responsibleId String?
+  name          String
+  cpf           String
+  rg            String?
+  birthDate     DateTime?
+  phone         String?
+  whatsapp      String?
+  email         String?
+  city          String?
+  state         String?
+  zipCode       String?
+  address       String?
+  profession    String?
+  leadSource    String?      // origem: indicação, redes sociais, etc.
+  status        ClientStatus @default(LEAD)
+  tags          String[]     @default([])
+  observations  String?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  responsible User?    @relation("ClientResponsible", fields: [responsibleId], references: [id])
+
+  documents    Document[]
+  processes    Process[]
+  transactions FinancialTransaction[]
+  notifications Notification[]
+  whatsappMessages WhatsAppMessage[]
+  timeline     ClientTimeline[]
+
+  @@unique([cpf, companyId])
+  @@map("clients")
+}
+
+model ClientTimeline {
+  id          String   @id @default(uuid())
+  clientId    String
+  type        String   // note, status_change, document_upload, process_update, etc.
+  title       String
+  description String?
+  metadata    Json?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_timeline")
+}
+
+// ============================================================
+// DOCUMENTOS
+// ============================================================
+
+enum DocumentCategory {
+  PHOTO_3X4
+  RG
+  CNH
+  PROOF_OF_RESIDENCE
+  PROOF_OF_INCOME
+  PSYCHOLOGICAL_EXAM
+  SHOOTING_EXAM
+  CERTIFICATIONS
+  DECLARATION_INQUIRY
+  DECLARATION_STORAGE
+  CLUB_MEMBERSHIP
+  GRU
+  CR
+  CRAF
+  GT
+  WEAPON_DOCUMENT
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  RECEIVED
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model Document {
+  id           String           @id @default(uuid())
+  clientId     String
+  category     DocumentCategory
+  name         String
+  fileUrl      String
+  fileKey      String           // chave S3/MinIO
+  mimeType     String
+  fileSize     Int
+  status       DocumentStatus   @default(RECEIVED)
+  uploadedAt   DateTime         @default(now())
+  expiresAt    DateTime?
+  observations String?
+
+  versions     DocumentVersion[]
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id         String   @id @default(uuid())
+  documentId String
+  fileUrl    String
+  fileKey    String
+  version    Int
+  uploadedBy String?
+  uploadedAt DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_versions")
+}
+
+// ============================================================
+// PROCESSOS
+// ============================================================
+
+enum ProcessType {
+  CR
+  CRAF
+  GT
+}
+
+enum ProcessStatus {
+  PENDING
+  IN_PROGRESS
+  WAITING_ANALYSIS
+  IN_QUEUE
+  IN_ANALYSIS
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+model Process {
+  id          String        @id @default(uuid())
+  companyId   String
+  clientId    String
+  type        ProcessType
+  status      ProcessStatus @default(PENDING)
+  progress    Int           @default(0) // 0-100
+  startedAt   DateTime?
+  completedAt DateTime?
+  dueDate     DateTime?
+  observations String?
+  metadata    Json?         // dados específicos do processo (ex: arma escolhida para CRAF)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  steps   ProcessStep[]
+  actions ProcessAction[]
+
+  @@map("processes")
+}
+
+model ProcessStep {
+  id          String   @id @default(uuid())
+  processId   String
+  stepKey     String   // ex: payment, photo_3x4, gov_password
+  stepName    String
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+  completedBy String?
+  order       Int
+  required    Boolean  @default(true)
+  observations String?
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@unique([processId, stepKey])
+  @@map("process_steps")
+}
+
+model ProcessAction {
+  id          String   @id @default(uuid())
+  processId   String
+  userId      String
+  action      String
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("process_actions")
+}
+
+// ============================================================
+// FUNIL DE VENDAS
+// ============================================================
+
+enum FunnelStage {
+  LEAD
+  CONTACT_MADE
+  NEGOTIATION
+  PAYMENT
+  DOCUMENTATION
+  CR
+  CRAF
+  GT
+  COMPLETED
+  LOST
+}
+
+model FunnelCard {
+  id          String      @id @default(uuid())
+  companyId   String
+  clientId    String
+  stage       FunnelStage @default(LEAD)
+  order       Int         @default(0)
+  value       Decimal?    @db.Decimal(10, 2)
+  probability Int?        // 0-100
+  expectedCloseDate DateTime?
+  observations String?
+  lostReason  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("funnel_cards")
+}
+
+// ============================================================
+// FINANCEIRO
+// ============================================================
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum PaymentMethod {
+  PIX
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  BOLETO
+}
+
+enum TransactionStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model FinancialTransaction {
+  id            String            @id @default(uuid())
+  companyId     String
+  clientId      String?
+  type          TransactionType
+  category      String            // mensalidade, processo_cr, processo_craf, etc.
+  description   String
+  amount        Decimal           @db.Decimal(10, 2)
+  paymentMethod PaymentMethod?
+  status        TransactionStatus @default(PENDING)
+  dueDate       DateTime?
+  paidAt        DateTime?
+  installments  Int               @default(1)
+  installmentNumber Int?
+  receiptUrl    String?
+  observations  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client? @relation(fields: [clientId], references: [id])
+
+  @@map("financial_transactions")
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  companyId   String
+  clientId    String?
+  category    String   // psicolologico, tiro, filiacao, gru, outros
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  paidAt      DateTime?
+  receiptUrl  String?
+  observations String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("expenses")
+}
+
+// ============================================================
+// NOTIFICAÇÕES E ALERTAS
+// ============================================================
+
+enum NotificationType {
+  PENDING_DOCUMENT
+  EXPIRING_DOCUMENT
+  EXPIRING_EXAM
+  EXPIRING_CR
+  EXPIRING_CRAF
+  PENDING_PAYMENT
+  PROCESS_UPDATE
+  SYSTEM
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  DISMISSED
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  companyId String
+  clientId  String?
+  type      NotificationType
+  title     String
+  message   String
+  status    NotificationStatus @default(UNREAD)
+  metadata  Json?
+  dueDate   DateTime?
+  createdAt DateTime           @default(now())
+  readAt    DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client? @relation(fields: [clientId], references: [id])
+
+  @@map("notifications")
+}
+
+// ============================================================
+// AUTOMAÇÕES
+// ============================================================
+
+enum AutomationTrigger {
+  DOCUMENT_EXPIRING_30_DAYS
+  DOCUMENT_EXPIRING_15_DAYS
+  DOCUMENT_EXPIRING_7_DAYS
+  DOCUMENT_EXPIRED
+  PAYMENT_OVERDUE
+  PROCESS_STALLED
+  EXAM_EXPIRING
+  CR_EXPIRING
+  CRAF_EXPIRING
+  HABITUALITY_MISSING
+}
+
+enum AutomationAction {
+  CREATE_NOTIFICATION
+  SEND_EMAIL
+  SEND_WHATSAPP
+  CREATE_TASK
+}
+
+model AutomationRule {
+  id        String            @id @default(uuid())
+  companyId String
+  name      String
+  trigger   AutomationTrigger
+  action    AutomationAction
+  template  String?           // template da mensagem
+  isActive  Boolean           @default(true)
+  metadata  Json?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("automation_rules")
+}
+
+// ============================================================
+// WHATSAPP
+// ============================================================
+
+enum WhatsAppMessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model WhatsAppMessage {
+  id        String                @id @default(uuid())
+  companyId String
+  clientId  String?
+  phone     String
+  message   String
+  status    WhatsAppMessageStatus @default(PENDING)
+  sentAt    DateTime?
+  template  String?
+  metadata  Json?
+  createdAt DateTime              @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client? @relation(fields: [clientId], references: [id])
+
+  @@map("whatsapp_messages")
+}
+
+// ============================================================
+// ASSINATURA DIGITAL
+// ============================================================
+
+enum SignatureStatus {
+  PENDING
+  SIGNED
+  REJECTED
+  EXPIRED
+}
+
+model Signature {
+  id           String          @id @default(uuid())
+  companyId    String
+  userId       String?
+  clientId     String?
+  documentName String
+  documentUrl  String
+  documentHash String
+  signerName   String
+  signerEmail  String?
+  signerCpf    String?
+  status       SignatureStatus  @default(PENDING)
+  signedAt     DateTime?
+  signerIp     String?
+  token        String          @unique @default(uuid())
+  expiresAt    DateTime
+  createdAt    DateTime        @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@map("signatures")
+}
+
+// ============================================================
+// AUDITORIA
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  companyId  String
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}

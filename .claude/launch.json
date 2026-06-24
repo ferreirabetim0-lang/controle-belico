@@ -1,0 +1,12 @@
+﻿{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:/Users/conta/controle-belico/node_modules/next/dist/bin/next", "dev", "-p", "3000"],
+      "cwd": "C:/Users/conta/controle-belico/apps/frontend",
+      "port": 3000
+    }
+  ]
+}

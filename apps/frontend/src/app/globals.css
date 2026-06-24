@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 215 35% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 35% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 35% 10%;
+    --primary: 213 73% 18%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 15% 93%;
+    --secondary-foreground: 215 35% 20%;
+    --muted: 210 15% 93%;
+    --muted-foreground: 215 20% 50%;
+    --accent: 207 65% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 213 73% 18%;
+    --radius: 0.75rem;
+    --chart-1: 213 73% 18%;
+    --chart-2: 207 65% 48%;
+    --chart-3: 142 72% 29%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 84% 42%;
+  }
+
+  .dark {
+    --background: 215 35% 8%;
+    --foreground: 210 20% 95%;
+    --card: 215 30% 11%;
+    --card-foreground: 210 20% 95%;
+    --popover: 215 30% 11%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 207 65% 55%;
+    --primary-foreground: 215 35% 8%;
+    --secondary: 215 25% 16%;
+    --secondary-foreground: 210 20% 85%;
+    --muted: 215 25% 16%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 207 65% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 25% 18%;
+    --input: 215 25% 18%;
+    --ring: 207 65% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200;
+    @apply text-muted-foreground hover:text-foreground hover:bg-accent/10;
+  }
+
+  .sidebar-link.active {
+    @apply bg-primary text-primary-foreground shadow-md;
+  }
+
+  .stat-card {
+    @apply bg-card rounded-2xl p-6 shadow-card border border-border transition-all duration-200;
+    @apply hover:shadow-soft hover:-translate-y-0.5;
+  }
+
+  .page-header {
+    @apply flex items-center justify-between mb-8;
+  }
+
+  .badge-pending {
+    @apply bg-warning/10 text-warning border-warning/20;
+  }
+
+  .badge-success {
+    @apply bg-success/10 text-success border-success/20;
+  }
+
+  .badge-danger {
+    @apply bg-danger/10 text-danger border-danger/20;
+  }
+
+  .badge-info {
+    @apply bg-sky/10 text-sky border-sky/20;
+  }
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
