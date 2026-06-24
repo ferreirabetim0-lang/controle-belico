@@ -69,7 +69,13 @@ export class ProcessesService {
     if (clientId) q = q.eq('clientId', clientId)
     const { data, error } = await q.order('createdAt', { ascending: false })
     if (error) throw new Error(error.message)
-    return data ?? []
+    return (data ?? []).map((p) => ({
+      ...p,
+      steps: (p.steps ?? []).map((s: any) => ({
+        ...s,
+        metadata: this._parseMeta(s.observations),
+      })),
+    }))
   }
 
   async createProcess(companyId: string, clientId: string, type: 'CR' | 'CRAF' | 'GT') {
@@ -119,7 +125,7 @@ export class ProcessesService {
     await this._assertProcess(companyId, processId)
 
     const { error } = await this.sb.from('process_steps')
-      .update({ metadata })
+      .update({ observations: JSON.stringify(metadata) })
       .eq('processId', processId).eq('stepKey', stepKey)
 
     if (error) throw new Error(error.message)
@@ -145,13 +151,14 @@ export class ProcessesService {
     const { data: urlData } = this.sb.db.storage.from('documents').getPublicUrl(storagePath)
 
     const { data: step } = await this.sb.from('process_steps')
-      .select('metadata').eq('processId', processId).eq('stepKey', stepKey).single()
+      .select('observations').eq('processId', processId).eq('stepKey', stepKey).single()
 
-    const meta: StepMetadata = (step?.metadata as StepMetadata) ?? {}
+    const meta: StepMetadata = this._parseMeta(step?.observations)
     const docs = meta.documents ?? []
     docs.push({ id: fileId, name: fileName, url: urlData.publicUrl, size: fileBuffer.length, type: mimeType, uploadedAt: new Date().toISOString() })
 
-    await this.sb.from('process_steps').update({ metadata: { ...meta, documents: docs } })
+    await this.sb.from('process_steps')
+      .update({ observations: JSON.stringify({ ...meta, documents: docs }) })
       .eq('processId', processId).eq('stepKey', stepKey)
 
     return { id: fileId, name: fileName, url: urlData.publicUrl }
@@ -161,9 +168,9 @@ export class ProcessesService {
     await this._assertProcess(companyId, processId)
 
     const { data: step } = await this.sb.from('process_steps')
-      .select('metadata').eq('processId', processId).eq('stepKey', stepKey).single()
+      .select('observations').eq('processId', processId).eq('stepKey', stepKey).single()
 
-    const meta: StepMetadata = (step?.metadata as StepMetadata) ?? {}
+    const meta: StepMetadata = this._parseMeta(step?.observations)
     const file = (meta.documents ?? []).find((d) => d.id === fileId)
     if (!file) throw new NotFoundException('Arquivo não encontrado')
 
@@ -172,10 +179,16 @@ export class ProcessesService {
     await this.sb.db.storage.from('documents').remove([storagePath])
 
     const docs = (meta.documents ?? []).filter((d) => d.id !== fileId)
-    await this.sb.from('process_steps').update({ metadata: { ...meta, documents: docs } })
+    await this.sb.from('process_steps')
+      .update({ observations: JSON.stringify({ ...meta, documents: docs }) })
       .eq('processId', processId).eq('stepKey', stepKey)
 
     return { ok: true }
+  }
+
+  private _parseMeta(raw: string | null | undefined): StepMetadata {
+    if (!raw) return {}
+    try { return JSON.parse(raw) } catch { return {} }
   }
 
   private async _assertProcess(companyId: string, processId: string) {
