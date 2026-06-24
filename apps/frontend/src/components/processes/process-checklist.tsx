@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   CheckCircle2, Circle, ChevronDown, ChevronUp, Loader2,
   Paperclip, Trash2, Eye, Download, X, Calendar, Clock,
@@ -534,6 +534,10 @@ export function ProcessChecklist({ process, onUpdate }: { process: Process; onUp
   const [steps, setSteps] = useState(
     (process.steps ?? []).map((s) => ({ ...s, metadata: (s as any).metadata ?? {} }))
   )
+
+  useEffect(() => {
+    setSteps((process.steps ?? []).map((s) => ({ ...s, metadata: (s as any).metadata ?? {} })))
+  }, [process.steps])
   const [showAll, setShowAll] = useState(false)
 
   const completed = steps.filter((s) => s.isCompleted).length
