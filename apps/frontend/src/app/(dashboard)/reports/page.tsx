@@ -45,8 +45,31 @@ const reports = [
   { icon: BarChart2, label: 'Dashboard Executivo', description: 'Visão consolidada para gestão', color: 'bg-[#D50000]/10 text-[#D50000]' },
 ]
 
+function exportCSV(filename: string, rows: string[][]) {
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState<DateRange | null>(null)
+
+  function handleExportProcessos() {
+    exportCSV('processos.csv', [
+      ['Tipo', 'Total', 'Finalizados', 'Em Andamento', '% Conclusão'],
+      ...processTypes.map((p) => [p.name, String(p.total), String(p.completed), String(p.total - p.completed), `${Math.round((p.completed / p.total) * 100)}%`]),
+    ])
+  }
+
+  function handleExportClientes() {
+    exportCSV('clientes-por-status.csv', [
+      ['Status', 'Quantidade'],
+      ...clientsByStatus.map((c) => [c.name, String(c.value)]),
+    ])
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -58,7 +81,7 @@ export default function ReportsPage() {
         </div>
         <div className="flex items-center gap-3">
           <DateFilter value="month" onChange={setDateRange} />
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleExportProcessos}>
             <Download className="w-4 h-4" /> Exportar todos
           </Button>
         </div>

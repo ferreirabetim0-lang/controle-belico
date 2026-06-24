@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, Plus, Shield, Loader2 } from 'lucide-react'
+import { Search, Plus, Shield, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
 import { DateFilter, DateRange } from '@/components/ui/date-filter'
 import { useApi } from '@/hooks/use-api'
-import { processes as processesApi, type Process } from '@/lib/api'
+import { processes as processesApi, clients, type Process } from '@/lib/api'
 
 const typeColors: Record<string, string> = { CR: 'info', CRAF: 'warning', GT: 'secondary' }
 
@@ -24,18 +24,134 @@ const statusConfig: Record<string, { label: string; variant: 'success' | 'warnin
   CANCELLED: { label: 'Cancelado', variant: 'danger' },
 }
 
+const inputCls = 'w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
+const labelCls = 'text-xs font-semibold text-muted-foreground mb-1 block'
+
+function NovoProcessoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [clientSearch, setClientSearch] = useState('')
+  const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null)
+  const [type, setType] = useState<'CR' | 'CRAF' | 'GT'>('CR')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const { data: clientData, loading: loadingClients } = useApi(
+    () => clients.list({ search: clientSearch || undefined, limit: 10 }),
+    [clientSearch],
+  )
+  const clientList = clientData?.data ?? []
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedClient) { setError('Selecione um cliente'); return }
+    setLoading(true)
+    setError('')
+    try {
+      await processesApi.create({ clientId: selectedClient.id, type })
+      onSuccess()
+      onClose()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar processo')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="font-bold text-foreground text-lg">Novo Processo</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className={labelCls}>TIPO DE PROCESSO *</label>
+            <div className="flex gap-2">
+              {(['CR', 'CRAF', 'GT'] as const).map((t) => (
+                <button type="button" key={t} onClick={() => setType(t)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${type === t ? 'border-[#0B2545] bg-[#0B2545] text-white' : 'border-border text-muted-foreground hover:border-[#0B2545]/40'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>CLIENTE *</label>
+            {selectedClient ? (
+              <div className="flex items-center justify-between px-3 py-2.5 bg-[#0B2545]/10 border border-[#0B2545]/30 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-gradient-to-br from-[#0B2545] to-[#3E92CC] rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                    {getInitials(selectedClient.name)}
+                  </div>
+                  <span className="text-sm font-medium text-foreground">{selectedClient.name}</span>
+                </div>
+                <button type="button" onClick={() => setSelectedClient(null)} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    placeholder="Buscar cliente por nome..."
+                    className={`${inputCls} pl-9`}
+                  />
+                </div>
+                {clientSearch && (
+                  <div className="bg-muted rounded-xl border border-border max-h-40 overflow-y-auto">
+                    {loadingClients ? (
+                      <div className="py-3 text-center text-xs text-muted-foreground">Buscando...</div>
+                    ) : clientList.length === 0 ? (
+                      <div className="py-3 text-center text-xs text-muted-foreground">Nenhum cliente encontrado</div>
+                    ) : clientList.map((c) => (
+                      <button
+                        type="button" key={c.id}
+                        onClick={() => { setSelectedClient({ id: c.id, name: c.name }); setClientSearch('') }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-background transition-colors border-b border-border last:border-0"
+                      >
+                        <div className="w-6 h-6 bg-gradient-to-br from-[#0B2545] to-[#3E92CC] rounded-md flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                          {getInitials(c.name)}
+                        </div>
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {error && <p className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-xl">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={loading || !selectedClient} className="flex-1 bg-[#0B2545] hover:bg-[#13315C]">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Criar Processo'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function ProcessesPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [dateRange, setDateRange] = useState<DateRange | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const { data: processList, loading, error } = useApi(
     () => processesApi.list({
       type: typeFilter || undefined,
       status: statusFilter || undefined,
     }),
-    [typeFilter, statusFilter],
+    [typeFilter, statusFilter, refreshKey],
   )
 
   const filtered = (processList ?? []).filter((p) =>
@@ -47,6 +163,13 @@ export default function ProcessesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {showModal && (
+        <NovoProcessoModal
+          onClose={() => setShowModal(false)}
+          onSuccess={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+
       <div className="page-header">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Processos</h1>
@@ -56,7 +179,7 @@ export default function ProcessesPage() {
         </div>
         <div className="flex items-center gap-3">
           <DateFilter value="month" onChange={setDateRange} />
-          <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]">
+          <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4" /> Novo Processo
           </Button>
         </div>

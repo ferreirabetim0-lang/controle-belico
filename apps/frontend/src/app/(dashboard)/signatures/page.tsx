@@ -1,11 +1,61 @@
 'use client'
 
-import { FileSignature, CheckCircle2, Clock, AlertTriangle, Plus, Eye, Send } from 'lucide-react'
+'use client'
+
+import { useState } from 'react'
+import { FileSignature, CheckCircle2, Clock, AlertTriangle, Plus, Eye, Send, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
 
-const signatures = [
+const inputCls = 'w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
+const labelCls = 'text-xs font-semibold text-muted-foreground mb-1 block'
+
+type Sig = { id: string; doc: string; client: string; sentAt: string; signedAt: string | null; status: string }
+
+function SolicitarAssinaturaModal({ onClose, onAdd }: { onClose: () => void; onAdd: (s: Sig) => void }) {
+  const [form, setForm] = useState({ client: '', doc: '' })
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    onAdd({
+      id: String(Date.now()),
+      doc: form.doc,
+      client: form.client,
+      sentAt: new Date().toLocaleDateString('pt-BR'),
+      signedAt: null,
+      status: 'PENDING',
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card w-full max-w-sm rounded-2xl border border-border shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="font-bold text-foreground text-lg">Solicitar Assinatura</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className={labelCls}>NOME DO CLIENTE *</label>
+            <input required value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder="João da Silva" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>DOCUMENTO *</label>
+            <input required value={form.doc} onChange={(e) => setForm({ ...form, doc: e.target.value })} placeholder="Ex: Procuração para Processo CR" className={inputCls} />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" className="flex-1 bg-[#0B2545] hover:bg-[#13315C]">Enviar Solicitação</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+const initialSignatures: Sig[] = [
   { id: '1', doc: 'Declaração de Capacidade Técnica — João Mendes', client: 'João Mendes', sentAt: '20/06/2026', signedAt: '20/06/2026 16:40', status: 'SIGNED' },
   { id: '2', doc: 'Procuração para Processo CR — Ana Costa', client: 'Ana Costa', sentAt: '21/06/2026', signedAt: null, status: 'PENDING' },
   { id: '3', doc: 'Termo de Responsabilidade — Carlos Lima', client: 'Carlos Lima', sentAt: '18/06/2026', signedAt: null, status: 'EXPIRED' },
@@ -20,17 +70,22 @@ const statusConfig = {
 }
 
 export default function SignaturesPage() {
+  const [signatures, setSignatures] = useState<Sig[]>(initialSignatures)
+  const [showModal, setShowModal] = useState(false)
+
   const signed = signatures.filter((s) => s.status === 'SIGNED').length
   const pending = signatures.filter((s) => s.status === 'PENDING').length
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {showModal && <SolicitarAssinaturaModal onClose={() => setShowModal(false)} onAdd={(s) => setSignatures((prev) => [s, ...prev])} />}
+
       <div className="page-header">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Assinaturas Digitais</h1>
           <p className="text-muted-foreground text-sm mt-1">{signed} assinados · {pending} aguardando</p>
         </div>
-        <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]">
+        <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowModal(true)}>
           <Plus className="w-4 h-4" /> Solicitar Assinatura
         </Button>
       </div>

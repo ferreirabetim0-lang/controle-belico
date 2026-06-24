@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, TrendingDown, DollarSign, Plus, Download, Search, Loader2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, Plus, Download, Search, Loader2, X } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,98 @@ import { formatCurrency } from '@/lib/utils'
 import { DateFilter, DateRange } from '@/components/ui/date-filter'
 import { useApi } from '@/hooks/use-api'
 import { financial as financialApi, dashboard, type Transaction } from '@/lib/api'
+
+const inputCls = 'w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
+const labelCls = 'text-xs font-semibold text-muted-foreground mb-1 block'
+
+const CATEGORIES_INCOME = ['Honorários CR', 'Honorários CRAF', 'Honorários GT', 'Renovação', 'Consultoria', 'Outros']
+const CATEGORIES_EXPENSE = ['Aluguel', 'Salários', 'Impostos', 'Despachante', 'Material', 'Marketing', 'Outros']
+
+function NovoLancamentoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState({ type: 'INCOME' as 'INCOME' | 'EXPENSE', description: '', amount: '', category: '', dueDate: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const categories = form.type === 'INCOME' ? CATEGORIES_INCOME : CATEGORIES_EXPENSE
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      await financialApi.create({
+        type: form.type,
+        description: form.description,
+        amount: parseFloat(form.amount.replace(',', '.')),
+        category: form.category || 'Outros',
+        dueDate: form.dueDate || undefined,
+        status: 'PENDING',
+      })
+      onSuccess()
+      onClose()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar lançamento')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="font-bold text-foreground text-lg">Novo Lançamento</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className={labelCls}>TIPO *</label>
+            <div className="flex gap-2">
+              {(['INCOME', 'EXPENSE'] as const).map((t) => (
+                <button type="button" key={t} onClick={() => setForm({ ...form, type: t, category: '' })}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                    form.type === t
+                      ? t === 'INCOME' ? 'border-[#00C853] bg-[#00C853]/10 text-[#00C853]' : 'border-[#D50000] bg-[#D50000]/10 text-[#D50000]'
+                      : 'border-border text-muted-foreground hover:border-muted-foreground'
+                  }`}>
+                  {t === 'INCOME' ? '↑ Receita' : '↓ Despesa'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>DESCRIÇÃO *</label>
+            <input required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: Honorários CR - João Silva" className={inputCls} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>VALOR (R$) *</label>
+              <input required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0,00" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>VENCIMENTO</label>
+              <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className={inputCls} />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>CATEGORIA</label>
+            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inputCls}>
+              <option value="">Selecionar categoria</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          {error && <p className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-xl">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={loading} className={`flex-1 ${form.type === 'INCOME' ? 'bg-[#00C853] hover:bg-[#00C853]/90' : 'bg-[#D50000] hover:bg-[#D50000]/90'}`}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar Lançamento'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 const statusConfig = {
   PAID: { label: 'Pago', badge: 'success' as const },
@@ -23,10 +115,12 @@ export default function FinancialPage() {
   const [typeFilter, setTypeFilter] = useState('')
   const [search, setSearch] = useState('')
   const [dateRange, setDateRange] = useState<DateRange | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const { data: summaryData, loading: loadingSummary } = useApi(() => financialApi.dashboard(), [])
-  const { data: historyData, loading: loadingHistory } = useApi(() => dashboard.monthlyHistory(), [])
-  const { data: transactionList, loading: loadingTx } = useApi(() => financialApi.list(), [])
+  const { data: summaryData, loading: loadingSummary } = useApi(() => financialApi.dashboard(), [refreshKey])
+  const { data: historyData, loading: loadingHistory } = useApi(() => dashboard.monthlyHistory(), [refreshKey])
+  const { data: transactionList, loading: loadingTx } = useApi(() => financialApi.list(), [refreshKey])
 
   const transactions: Transaction[] = transactionList ?? []
 
@@ -38,6 +132,13 @@ export default function FinancialPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {showModal && (
+        <NovoLancamentoModal
+          onClose={() => setShowModal(false)}
+          onSuccess={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+
       <div className="page-header">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Financeiro</h1>
@@ -46,7 +147,7 @@ export default function FinancialPage() {
         <div className="flex gap-2">
           <DateFilter value="month" onChange={setDateRange} />
           <Button variant="outline" size="sm" className="gap-2"><Download className="w-4 h-4" /> Exportar</Button>
-          <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]"><Plus className="w-4 h-4" /> Novo Lançamento</Button>
+          <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> Novo Lançamento</Button>
         </div>
       </div>
 

@@ -1,9 +1,60 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, GripVertical, User, DollarSign, ChevronDown } from 'lucide-react'
+import { Plus, GripVertical, User, DollarSign, ChevronDown, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, getInitials } from '@/lib/utils'
+
+const inputCls = 'w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
+const labelCls = 'text-xs font-semibold text-muted-foreground mb-1 block'
+
+function NovoLeadModal({ onClose, onAdd }: { onClose: () => void; onAdd: (card: Card) => void }) {
+  const [form, setForm] = useState({ name: '', value: '', city: '' })
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    onAdd({
+      id: `c${Date.now()}`,
+      name: form.name,
+      value: parseFloat(form.value.replace(',', '.')) || 0,
+      city: form.city,
+      responsible: 'Admin',
+      daysInStage: 0,
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card w-full max-w-sm rounded-2xl border border-border shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="font-bold text-foreground text-lg">Novo Lead</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className={labelCls}>NOME DO CLIENTE *</label>
+            <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="João da Silva" className={inputCls} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>VALOR (R$)</label>
+              <input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="850,00" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>CIDADE</label>
+              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="São Paulo" className={inputCls} />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" className="flex-1 bg-[#0B2545] hover:bg-[#13315C]">Adicionar Lead</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 type Card = {
   id: string
@@ -84,6 +135,7 @@ export default function FunnelPage() {
   const [columns, setColumns] = useState(initialColumns)
   const [dragging, setDragging] = useState<{ cardId: string; fromCol: string } | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   const totalCards = columns.reduce((s, c) => s + c.cards.length, 0)
   const totalValue = columns
@@ -117,8 +169,14 @@ export default function FunnelPage() {
     setDragOver(null)
   }
 
+  function handleAddLead(card: Card) {
+    setColumns((prev) => prev.map((col) => col.id === 'lead' ? { ...col, cards: [card, ...col.cards] } : col))
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {showModal && <NovoLeadModal onClose={() => setShowModal(false)} onAdd={handleAddLead} />}
+
       {/* Header */}
       <div className="page-header">
         <div>
@@ -127,7 +185,7 @@ export default function FunnelPage() {
             {totalCards} clientes · {formatCurrency(totalValue)} em pipeline
           </p>
         </div>
-        <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]">
+        <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowModal(true)}>
           <Plus className="w-4 h-4" /> Novo Lead
         </Button>
       </div>

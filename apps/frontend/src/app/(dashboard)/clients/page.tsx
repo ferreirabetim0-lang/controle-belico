@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, Plus, Filter, Download, Loader2 } from 'lucide-react'
+import { Search, Plus, Filter, Download, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
@@ -24,15 +24,87 @@ const statusConfig: Record<string, { label: string; variant: 'info' | 'warning' 
   LOST: { label: 'Perdido', variant: 'danger' },
 }
 
+const inputCls = 'w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
+const labelCls = 'text-xs font-semibold text-muted-foreground mb-1 block'
+
+function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState({ name: '', cpf: '', phone: '', email: '', city: '', state: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      await clients.create({ name: form.name, cpf: form.cpf, phone: form.phone || undefined, email: form.email || undefined, city: form.city || undefined, state: form.state || undefined })
+      onSuccess()
+      onClose()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao cadastrar cliente')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="font-bold text-foreground text-lg">Novo Cliente</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className={labelCls}>NOME COMPLETO *</label>
+              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="João da Silva" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>CPF *</label>
+              <input required value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} placeholder="000.000.000-00" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>TELEFONE</label>
+              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(11) 99999-9999" className={inputCls} />
+            </div>
+            <div className="col-span-2">
+              <label className={labelCls}>E-MAIL</label>
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="joao@email.com" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>CIDADE</label>
+              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="São Paulo" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>ESTADO</label>
+              <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="SP" maxLength={2} className={inputCls} />
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-xl">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={loading} className="flex-1 bg-[#0B2545] hover:bg-[#13315C]">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cadastrar Cliente'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [dateRange, setDateRange] = useState<DateRange | null>(null)
   const [page, setPage] = useState(1)
+  const [showModal, setShowModal] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const { data, loading, error } = useApi(
     () => clients.list({ search: search || undefined, status: statusFilter || undefined, page, limit: 20 }),
-    [search, statusFilter, page],
+    [search, statusFilter, page, refreshKey],
   )
 
   const clientList: Client[] = data?.data ?? []
@@ -40,6 +112,13 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {showModal && (
+        <NovoClienteModal
+          onClose={() => setShowModal(false)}
+          onSuccess={() => { setRefreshKey((k) => k + 1); setPage(1) }}
+        />
+      )}
+
       <div className="page-header">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
@@ -52,7 +131,7 @@ export default function ClientsPage() {
           <Button variant="outline" size="sm" className="gap-2">
             <Download className="w-4 h-4" /> Exportar
           </Button>
-          <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]">
+          <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4" /> Novo Cliente
           </Button>
         </div>

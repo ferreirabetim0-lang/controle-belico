@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Camera, FileWarning, CreditCard, Clock, UserX, FileX, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, Camera, FileWarning, CreditCard, Clock, UserX, FileX, CheckCircle2, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { clients } from '@/lib/api'
 
 type Urgency = 'high' | 'medium' | 'low'
 
@@ -132,12 +133,33 @@ const urgencyConfig = {
 
 export default function PendenciesPage() {
   const [filter, setFilter] = useState<'all' | Urgency>('all')
+  const [data, setData] = useState(categories)
+  const [updating, setUpdating] = useState(false)
+  const [lastUpdate, setLastUpdate] = useState<string | null>(null)
 
-  const total = categories.reduce((acc, c) => acc + c.count, 0)
-  const high = categories.filter((c) => c.urgency === 'high').reduce((acc, c) => acc + c.count, 0)
-  const medium = categories.filter((c) => c.urgency === 'medium').reduce((acc, c) => acc + c.count, 0)
+  async function handleUpdate() {
+    setUpdating(true)
+    try {
+      const result = await clients.pendencies()
+      if (result && Object.keys(result).length > 0) {
+        setData((prev) => prev.map((cat) => {
+          const clientNames: string[] = result[cat.id] ?? []
+          return { ...cat, count: clientNames.length, clients: clientNames }
+        }))
+      }
+      setLastUpdate(new Date().toLocaleTimeString('pt-BR'))
+    } catch {
+      // keep current data on error
+    } finally {
+      setUpdating(false)
+    }
+  }
 
-  const filtered = filter === 'all' ? categories : categories.filter((c) => c.urgency === filter)
+  const total = data.reduce((acc, c) => acc + c.count, 0)
+  const high = data.filter((c) => c.urgency === 'high').reduce((acc, c) => acc + c.count, 0)
+  const medium = data.filter((c) => c.urgency === 'medium').reduce((acc, c) => acc + c.count, 0)
+
+  const filtered = filter === 'all' ? data : data.filter((c) => c.urgency === filter)
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -146,11 +168,12 @@ export default function PendenciesPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Central de Pendências</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Identificação automática de pendências de todos os clientes
+            {lastUpdate ? `Atualizado às ${lastUpdate}` : 'Identificação automática de pendências de todos os clientes'}
           </p>
         </div>
-        <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]">
-          Atualizar Agora
+        <Button size="sm" className="gap-2 bg-[#0B2545] hover:bg-[#13315C]" onClick={handleUpdate} disabled={updating}>
+          {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          {updating ? 'Atualizando...' : 'Atualizar Agora'}
         </Button>
       </div>
 
