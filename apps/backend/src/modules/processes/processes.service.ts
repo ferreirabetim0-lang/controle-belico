@@ -52,8 +52,11 @@ export type StepMetadata = {
   schedulingTime?: string
   schedulingLocation?: string
   certifications?: string[]
+  certificationDocs?: Record<string, { id: string; name: string; url: string } | undefined>
   addressOwner?: 'client' | 'third_party'
   observations?: string
+  incomeType?: string
+  sentAnalysisDate?: string
   documents?: { id: string; name: string; url: string; size: number; type: string; uploadedAt: string }[]
   addressDeclarationDoc?: { id: string; name: string; url: string } | null
 }
@@ -121,11 +124,20 @@ export class ProcessesService {
     return this._recalcProgress(processId)
   }
 
-  async updateStepMetadata(companyId: string, processId: string, stepKey: string, metadata: StepMetadata) {
+  async updateStepMetadata(companyId: string, processId: string, stepKey: string, patch: StepMetadata) {
     await this._assertProcess(companyId, processId)
 
+    // Read current from DB to merge server-side (prevents overwriting concurrent upload)
+    const { data: step } = await this.sb.from('process_steps')
+      .select('observations').eq('processId', processId).eq('stepKey', stepKey).single()
+    const current = this._parseMeta(step?.observations)
+    const merged = { ...current, ...patch }
+    if (patch.certificationDocs && current.certificationDocs) {
+      merged.certificationDocs = { ...current.certificationDocs, ...patch.certificationDocs }
+    }
+
     const { error } = await this.sb.from('process_steps')
-      .update({ observations: JSON.stringify(metadata) })
+      .update({ observations: JSON.stringify(merged) })
       .eq('processId', processId).eq('stepKey', stepKey)
 
     if (error) throw new Error(error.message)

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, Mail, MapPin, Edit, Plus, FileText,
   Clock, AlertTriangle, MessageSquare, Trash2,
-  User, Calendar, Shield, DollarSign, Loader2, X, Search,
+  User, Calendar, Shield, DollarSign, Loader2, X, Search, Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -367,8 +367,36 @@ export default function ClientDetailPage() {
 function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes }: {
   client: any; onNewProcess: () => void; onArchive: () => void; onWhatsApp: () => void; processes: Process[]
 }) {
+  const [showGovPwd, setShowGovPwd] = useState(false)
   const pendingSteps = processes.flatMap((p) => (p.steps ?? []).filter((s) => !s.isCompleted))
   const daysAsClient = Math.floor((Date.now() - new Date(client.createdAt).getTime()) / 86400000)
+  const activeProcess = processes.find((p) => p.status === 'IN_PROGRESS') ?? processes[0]
+
+  const govStep = activeProcess?.steps?.find((s) => s.stepKey === 'gov_password')
+  const psychStep = activeProcess?.steps?.find((s) => s.stepKey === 'psych_schedule')
+  const shootStep = activeProcess?.steps?.find((s) => s.stepKey === 'shooting_schedule')
+  const sentStep = activeProcess?.steps?.find((s) => s.stepKey === 'sent_analysis')
+
+  const govPwd = (govStep as any)?.metadata?.govPassword as string | undefined
+  const psychDate = (psychStep as any)?.metadata?.schedulingDate as string | undefined
+  const psychTime = (psychStep as any)?.metadata?.schedulingTime as string | undefined
+  const psychLoc = (psychStep as any)?.metadata?.schedulingLocation as string | undefined
+  const shootDate = (shootStep as any)?.metadata?.schedulingDate as string | undefined
+  const shootTime = (shootStep as any)?.metadata?.schedulingTime as string | undefined
+  const shootLoc = (shootStep as any)?.metadata?.schedulingLocation as string | undefined
+  const sentDate = (sentStep as any)?.metadata?.sentAnalysisDate as string | undefined
+
+  const phone = (client.phone || client.whatsapp || '').replace(/\D/g, '')
+
+  function waLink(type: string, date: string, time?: string, loc?: string) {
+    const msg = encodeURIComponent(
+      `Olá ${client.name}! Lembrando do seu agendamento de ${type} em ` +
+      `${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}` +
+      `${time ? ` às ${time}` : ''}${loc ? ` no local: ${loc}` : ''}. ` +
+      `Qualquer dúvida, estamos à disposição!`
+    )
+    return `https://wa.me/55${phone}?text=${msg}`
+  }
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
@@ -387,6 +415,86 @@ function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {(govPwd || psychDate || shootDate || sentDate) && (
+          <div className="bg-card rounded-2xl p-6 border border-border space-y-4">
+            <h3 className="font-bold text-foreground text-sm">Informações do Processo</h3>
+
+            {govPwd && (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-[#0B2545]/10 rounded-xl flex items-center justify-center shrink-0">
+                  <Lock className="w-4 h-4 text-[#0B2545]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-muted-foreground">Senha GOV</div>
+                  <div className="text-sm font-mono font-medium">{showGovPwd ? govPwd : '•'.repeat(govPwd.length)}</div>
+                </div>
+                <button onClick={() => setShowGovPwd((v) => !v)}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg border border-border">
+                  {showGovPwd ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </div>
+            )}
+
+            {psychDate && (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-[#3E92CC]/10 rounded-xl flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4 text-[#3E92CC]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-muted-foreground">Exame Psicológico</div>
+                  <div className="text-sm font-medium">
+                    {new Date(psychDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                    {psychTime ? ` às ${psychTime}` : ''}
+                    {psychLoc ? ` — ${psychLoc}` : ''}
+                  </div>
+                </div>
+                {phone && (
+                  <a href={waLink('Exame Psicológico', psychDate, psychTime, psychLoc)} target="_blank" rel="noreferrer">
+                    <Button size="sm" variant="outline" className="text-xs gap-1.5 text-[#00C853] border-[#00C853]/30 hover:bg-[#00C853]/5 shrink-0">
+                      <MessageSquare className="w-3 h-3" /> Lembrar cliente
+                    </Button>
+                  </a>
+                )}
+              </div>
+            )}
+
+            {shootDate && (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-[#FFAB00]/10 rounded-xl flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4 text-[#FFAB00]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-muted-foreground">Exame de Tiro</div>
+                  <div className="text-sm font-medium">
+                    {new Date(shootDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                    {shootTime ? ` às ${shootTime}` : ''}
+                    {shootLoc ? ` — ${shootLoc}` : ''}
+                  </div>
+                </div>
+                {phone && (
+                  <a href={waLink('Exame de Tiro', shootDate, shootTime, shootLoc)} target="_blank" rel="noreferrer">
+                    <Button size="sm" variant="outline" className="text-xs gap-1.5 text-[#00C853] border-[#00C853]/30 hover:bg-[#00C853]/5 shrink-0">
+                      <MessageSquare className="w-3 h-3" /> Lembrar cliente
+                    </Button>
+                  </a>
+                )}
+              </div>
+            )}
+
+            {sentDate && (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-[#00C853]/10 rounded-xl flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4 text-[#00C853]" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-xs text-muted-foreground">Enviado para Análise</div>
+                  <div className="text-sm font-medium">{new Date(sentDate + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
