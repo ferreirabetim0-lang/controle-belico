@@ -11,7 +11,7 @@ import { processes as processesApi, type Process } from '@/lib/api'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const OBSERVATION_ONLY_STEPS = ['in_queue', 'in_analysis', 'approved']
+const OBSERVATION_ONLY_STEPS: string[] = []
 
 const INCOME_TYPES = [
   { key: 'cnpj', label: 'CNPJ' },
@@ -48,6 +48,11 @@ type StepMeta = {
   // CRAF
   weaponType?: string; weaponModel?: string; weaponCaliber?: string; weaponBrand?: string
   storeName?: string; storeCnpj?: string
+  // Datas de status
+  gruDate?: string
+  queueDate?: string
+  analysisDate?: string
+  deferralDate?: string
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -596,6 +601,97 @@ function ObservationField({ meta, onSave }: { meta: StepMeta; onSave: (m: Partia
   )
 }
 
+// ─── DateObservationField (reutilizável) ─────────────────────────────────────
+
+function DateObservationField({
+  meta, onSave, dateKey, dateLabel,
+}: {
+  meta: StepMeta
+  onSave: (m: Partial<StepMeta>) => void
+  dateKey: keyof StepMeta
+  dateLabel: string
+}) {
+  const [date, setDate] = useState((meta[dateKey] as string) ?? '')
+  const [text, setText] = useState(meta.observations ?? '')
+  const [saved, setSaved] = useState(false)
+
+  function handleSave() {
+    onSave({ [dateKey]: date, observations: text } as Partial<StepMeta>)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div className="space-y-3 pt-2">
+      <div>
+        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 mb-1.5">
+          <Calendar className="w-3.5 h-3.5" /> {dateLabel.toUpperCase()}
+        </label>
+        <input type="date" value={date}
+          onChange={(e) => { setDate(e.target.value); setSaved(false) }}
+          className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20"
+        />
+        {date && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {weekday(date)}, {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}
+          </p>
+        )}
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">OBSERVAÇÃO</label>
+        <textarea rows={3} value={text}
+          onChange={(e) => { setText(e.target.value); setSaved(false) }}
+          placeholder="Adicione uma observação..."
+          className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-ring/20"
+        />
+      </div>
+      <Button size="sm" onClick={handleSave} className="bg-[#0B2545] hover:bg-[#13315C]">
+        {saved ? '✓ Salvo' : 'Salvar'}
+      </Button>
+    </div>
+  )
+}
+
+// ─── GruField ─────────────────────────────────────────────────────────────────
+
+function GruField({
+  meta, onSave, processId, stepKey, onRefresh,
+}: { meta: StepMeta; onSave: (m: Partial<StepMeta>) => void; processId: string; stepKey: string; onRefresh: () => void }) {
+  const [date, setDate] = useState(meta.gruDate ?? '')
+  const [saved, setSaved] = useState(false)
+
+  function handleSave() {
+    onSave({ gruDate: date })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div className="space-y-3 pt-2">
+      <div>
+        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 mb-1.5">
+          <Calendar className="w-3.5 h-3.5" /> DATA DE PAGAMENTO DA GRU
+        </label>
+        <div className="flex gap-2">
+          <input type="date" value={date}
+            onChange={(e) => { setDate(e.target.value); setSaved(false) }}
+            className="flex-1 px-3 py-2 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20"
+          />
+          <Button size="sm" onClick={handleSave} className="bg-[#0B2545] hover:bg-[#13315C] shrink-0">
+            {saved ? '✓ Salvo' : 'Salvar'}
+          </Button>
+        </div>
+        {date && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {weekday(date)}, {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}
+          </p>
+        )}
+      </div>
+      <DocumentUploader meta={meta} processId={processId} stepKey={stepKey} onRefresh={onRefresh} />
+    </div>
+  )
+}
+
 // ─── SentAnalysisField ────────────────────────────────────────────────────────
 
 function SentAnalysisField({ meta, onSave }: { meta: StepMeta; onSave: (m: Partial<StepMeta>) => void }) {
@@ -788,6 +884,18 @@ function StepRow({
     }
     if (step.stepKey === 'sent_analysis') {
       return <SentAnalysisField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} />
+    }
+    if (step.stepKey === 'gru') {
+      return <GruField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} processId={processId} stepKey={step.stepKey} onRefresh={onRefresh} />
+    }
+    if (step.stepKey === 'in_queue') {
+      return <DateObservationField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} dateKey="queueDate" dateLabel="Data de entrada em fila" />
+    }
+    if (step.stepKey === 'in_analysis') {
+      return <DateObservationField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} dateKey="analysisDate" dateLabel="Data de entrada em análise" />
+    }
+    if (step.stepKey === 'approved') {
+      return <DateObservationField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} dateKey="deferralDate" dateLabel="Data de deferimento" />
     }
     if (isObsOnly) {
       return <ObservationField meta={meta} onSave={(patch) => onMetaSave(step.stepKey, patch)} />
