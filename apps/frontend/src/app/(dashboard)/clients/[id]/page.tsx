@@ -337,6 +337,7 @@ export default function ClientDetailPage() {
             onArchive={handleArchive}
             onWhatsApp={handleWhatsApp}
             processes={processes}
+            onOpenProcess={(id) => { setSelectedProcessId(id); setActiveTab('processes') }}
           />
         )}
         {activeTab === 'processes' && (
@@ -409,8 +410,8 @@ export default function ClientDetailPage() {
   )
 }
 
-function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes }: {
-  client: any; onNewProcess: () => void; onArchive: () => void; onWhatsApp: () => void; processes: Process[]
+function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes, onOpenProcess }: {
+  client: any; onNewProcess: () => void; onArchive: () => void; onWhatsApp: () => void; processes: Process[]; onOpenProcess: (id: string) => void
 }) {
   const [showGovPwd, setShowGovPwd] = useState(false)
   const allSteps = processes.flatMap((p) => p.steps ?? [])
@@ -448,45 +449,66 @@ function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-6">
-        {pendingSteps.length > 0 && (
-          <div className="bg-[#D50000]/5 border border-[#D50000]/20 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="w-5 h-5 text-[#D50000]" />
-              <h3 className="font-bold text-[#D50000]">{pendingSteps.length} pendência{pendingSteps.length > 1 ? 's' : ''} no processo</h3>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {pendingSteps.slice(0, 8).map((step) => (
-                <div key={step.stepKey} className="flex items-center gap-2 text-sm text-foreground">
-                  <div className="w-4 h-4 rounded border-2 border-[#D50000]/40 flex-shrink-0" />
-                  {step.stepName}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {completedSteps.length > 0 && (
-          <div className="bg-[#00C853]/5 border border-[#00C853]/20 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-5 h-5 rounded-full bg-[#00C853] flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-[#00C853]">{completedSteps.length} etapa{completedSteps.length > 1 ? 's' : ''} concluída{completedSteps.length > 1 ? 's' : ''}</h3>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {completedSteps.map((step) => (
-                <div key={step.stepKey} className="flex items-center gap-2 text-sm text-foreground">
-                  <div className="w-4 h-4 rounded-full bg-[#00C853] flex items-center justify-center flex-shrink-0">
-                    <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+        {/* Cards de processos */}
+        {processes.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="font-bold text-foreground text-sm">Processos</h3>
+            {processes.map((p) => {
+              const steps = p.steps ?? []
+              const total = steps.length
+              const done = steps.filter((s) => s.isCompleted).length
+              const pending = total - done
+              const pct = total ? Math.round((done / total) * 100) : 0
+              const isDone = pct === 100
+              return (
+                <button key={p.id} onClick={() => onOpenProcess(p.id)}
+                  className="w-full text-left bg-card border border-border rounded-2xl p-5 hover:border-[#3E92CC]/50 hover:shadow-soft transition-all group">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white ${isDone ? 'bg-[#00C853]' : 'bg-[#0B2545]'}`}>
+                        {p.type}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">Processo {p.type}</div>
+                        <div className="text-xs text-muted-foreground">Iniciado em {new Date(p.createdAt).toLocaleDateString('pt-BR')}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className={`text-xl font-extrabold ${isDone ? 'text-[#00C853]' : 'text-[#3E92CC]'}`}>{pct}%</div>
+                        <div className="text-xs text-muted-foreground">{done}/{total} etapas</div>
+                      </div>
+                      <span className="text-muted-foreground group-hover:text-[#3E92CC] transition-colors">→</span>
+                    </div>
                   </div>
-                  <span className="text-muted-foreground line-through">{step.stepName}</span>
-                </div>
-              ))}
-            </div>
+                  <div className="w-full bg-muted rounded-full h-2 mb-2">
+                    <div className={`h-2 rounded-full transition-all duration-500 ${isDone ? 'bg-[#00C853]' : 'bg-gradient-to-r from-[#3E92CC] to-[#00C853]'}`}
+                      style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span className="text-[#00C853]">✓ {done} concluídas</span>
+                    {pending > 0 && <span className="text-[#D50000]">⚠ {pending} pendentes</span>}
+                    {isDone && <span className="text-[#00C853] font-semibold">Processo concluído!</span>}
+                  </div>
+
+                  {/* Pendências compactas */}
+                  {pending > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border/50">
+                      <div className="grid grid-cols-2 gap-1">
+                        {steps.filter((s) => !s.isCompleted).slice(0, 6).map((s) => (
+                          <div key={s.stepKey} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <div className="w-3 h-3 rounded border border-[#D50000]/40 flex-shrink-0" />
+                            {s.stepName}
+                          </div>
+                        ))}
+                        {pending > 6 && <div className="text-xs text-muted-foreground col-span-2">+{pending - 6} mais...</div>}
+                      </div>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
           </div>
         )}
 
