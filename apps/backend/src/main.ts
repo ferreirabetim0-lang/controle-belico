@@ -11,8 +11,21 @@ async function bootstrap() {
   app.use(helmet())
 
   // CORS
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://controle-belico.vercel.app',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean)
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true)
+      if (allowedOrigins.some((o) => origin === o || origin.endsWith('.vercel.app'))) {
+        return callback(null, true)
+      }
+      callback(new Error(`CORS bloqueado: ${origin}`))
+    },
     credentials: true,
   })
 
