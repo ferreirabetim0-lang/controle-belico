@@ -177,6 +177,29 @@ export const financial = {
   remove: (id: string) => request<void>(`/financial/${id}`, { method: 'DELETE' }),
 }
 
+// ─── Assinaturas Digitais ────────────────────────────────────────────────────
+
+export type Signature = {
+  id: string
+  clientId: string
+  document: string
+  status: 'PENDING' | 'SIGNED' | 'EXPIRED'
+  sentAt: string
+  signedAt: string | null
+  createdAt: string
+  client?: { id: string; name: string; phone?: string }
+}
+
+export const signatures = {
+  list: (params?: { status?: string; search?: string; clientId?: string }) =>
+    request<Signature[]>(`/signatures${toQS(params)}`),
+  create: (data: { clientId: string; document: string }) =>
+    request<Signature>('/signatures', { method: 'POST', body: data }),
+  update: (id: string, data: { status?: string; signedAt?: string | null }) =>
+    request<Signature>(`/signatures/${id}`, { method: 'PATCH', body: data }),
+  remove: (id: string) => request<void>(`/signatures/${id}`, { method: 'DELETE' }),
+}
+
 // ─── Assinaturas / Planos ────────────────────────────────────────────────────
 
 export type Plan = {

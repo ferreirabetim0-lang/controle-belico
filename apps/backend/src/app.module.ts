@@ -12,6 +12,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AutomationsModule } from './modules/automations/automations.module'
 import { CompaniesModule } from './modules/companies/companies.module'
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module'
+import { SignaturesModule } from './modules/signatures/signatures.module'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
     NotificationsModule,
     AutomationsModule,
     SubscriptionsModule,
+    SignaturesModule,
   ],
 })
 export class AppModule {}
