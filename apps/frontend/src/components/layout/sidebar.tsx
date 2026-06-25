@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, FolderKanban, AlertTriangle,
   DollarSign, BarChart3, TrendingUp, Settings, Shield,
-  Radar, ChevronLeft, MessageSquare, FileSignature, LogOut,
+  Radar, ChevronLeft, MessageSquare, FileSignature, LogOut, FileDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +20,7 @@ const navItems = [
   { label: 'Assinaturas', href: '/signatures', icon: FileSignature },
   { label: 'Relatórios', href: '/reports', icon: BarChart3 },
   { label: 'Radar', href: '/radar', icon: Radar },
+  { label: 'Diminuir PDF', href: '/pdf-compress', icon: FileDown },
 ]
 
 const bottomItems = [
