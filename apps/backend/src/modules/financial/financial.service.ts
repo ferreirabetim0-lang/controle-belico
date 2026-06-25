@@ -25,8 +25,8 @@ export class FinancialService {
       .select('amount').eq('companyId', companyId).eq('type', 'INCOME').eq('status', 'PAID')
       .gte('paidAt', startOfMonth).lte('paidAt', endOfMonth)
 
-    const { data: expenseRows } = await this.sb.from('expenses')
-      .select('amount').eq('companyId', companyId)
+    const { data: expenseRows } = await this.sb.from('financial_transactions')
+      .select('amount').eq('companyId', companyId).eq('type', 'EXPENSE').eq('status', 'PAID')
       .gte('paidAt', startOfMonth).lte('paidAt', endOfMonth)
 
     const totalIncome = (incomeRows ?? []).reduce((sum, r) => sum + Number(r.amount), 0)
@@ -53,8 +53,8 @@ export class FinancialService {
       const [{ data: incomeRows }, { data: expenseRows }] = await Promise.all([
         this.sb.from('financial_transactions').select('amount').eq('companyId', companyId)
           .eq('type', 'INCOME').eq('status', 'PAID').gte('paidAt', start).lte('paidAt', end),
-        this.sb.from('expenses').select('amount').eq('companyId', companyId)
-          .gte('paidAt', start).lte('paidAt', end),
+        this.sb.from('financial_transactions').select('amount').eq('companyId', companyId)
+          .eq('type', 'EXPENSE').eq('status', 'PAID').gte('paidAt', start).lte('paidAt', end),
       ])
 
       const inc = (incomeRows ?? []).reduce((s, r) => s + Number(r.amount), 0)
