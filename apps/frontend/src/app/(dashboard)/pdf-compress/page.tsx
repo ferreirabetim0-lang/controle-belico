@@ -48,8 +48,9 @@ export default function PdfCompressPage() {
     setResult(null)
 
     try {
-      // Dynamic imports to avoid SSR issues
-      const pdfjsLib = await import('pdfjs-dist')
+      // Dynamic imports to avoid SSR issues — use `any` to avoid pdfjs type version mismatch
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pdfjsLib: any = await import('pdfjs-dist')
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
       const { jsPDF } = await import('jspdf')
@@ -58,7 +59,6 @@ export default function PdfCompressPage() {
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
       const totalPages = pdf.numPages
 
-      // Start with quality 0.7, reduce if needed
       let quality = 0.75
       let outputBlob: Blob | null = null
 
@@ -78,10 +78,9 @@ export default function PdfCompressPage() {
           const canvas = document.createElement('canvas')
           canvas.width = viewport.width
           canvas.height = viewport.height
-          const ctx = canvas.getContext('2d')!
+          const ctx = canvas.getContext('2d')
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await page.render({ canvasContext: ctx as any, viewport }).promise
+          await page.render({ canvasContext: ctx, viewport, canvas }).promise
 
           const imgData = canvas.toDataURL('image/jpeg', quality)
 
