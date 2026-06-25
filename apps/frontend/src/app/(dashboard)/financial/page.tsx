@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 import { DateFilter, DateRange } from '@/components/ui/date-filter'
 import { useApi } from '@/hooks/use-api'
-import { financial as financialApi, dashboard, type Transaction } from '@/lib/api'
+import { financial as financialApi, dashboard as dashboardApi, type Transaction } from '@/lib/api'
 
 const inputCls = 'w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20'
 const labelCls = 'text-xs font-semibold text-muted-foreground mb-1 block'
@@ -200,8 +200,7 @@ export default function FinancialPage() {
 
   const refresh = () => setRefreshKey((k) => k + 1)
 
-  const { data: summaryData, loading: loadingSummary } = useApi(() => financialApi.dashboard(), [refreshKey])
-  const { data: historyData, loading: loadingHistory } = useApi(() => dashboard.monthlyHistory(), [refreshKey])
+  const { data: historyData, loading: loadingHistory } = useApi(() => dashboardApi.monthlyHistory(), [refreshKey])
   const { data: transactionList, loading: loadingTx } = useApi(() => financialApi.list(), [refreshKey])
 
   const transactions: Transaction[] = transactionList ?? []
@@ -240,6 +239,17 @@ export default function FinancialPage() {
 
   const hasFilters = !!(typeFilter || statusFilter || categoryFilter || search || dateRange)
 
+  // KPIs calculados das transações filtradas (refletem todos os filtros ativos)
+  const kpiStats = useMemo(() => {
+    const income = filtered.filter((t) => t.type === 'INCOME' && t.status === 'PAID').reduce((s, t) => s + Number(t.amount), 0)
+    const expenses = filtered.filter((t) => t.type === 'EXPENSE' && t.status === 'PAID').reduce((s, t) => s + Number(t.amount), 0)
+    const profit = income - expenses
+    const margin = income > 0 ? (profit / income) * 100 : 0
+    return { totalIncome: income, totalExpenses: expenses, profit, margin }
+  }, [filtered])
+
+  const periodLabel = dateRange ? dateRange.label : 'do Período'
+
   return (
     <div className="space-y-8 animate-fade-in">
       {(showModal || editTarget) && (
@@ -269,17 +279,17 @@ export default function FinancialPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Receita do Mês', value: summaryData?.totalIncome ?? 0, icon: TrendingUp, color: 'text-[#00C853]', bg: 'bg-[#00C853]/10', border: 'border-l-[#00C853]' },
-          { label: 'Despesas do Mês', value: summaryData?.totalExpenses ?? 0, icon: TrendingDown, color: 'text-[#D50000]', bg: 'bg-[#D50000]/10', border: 'border-l-[#D50000]' },
-          { label: 'Lucro do Mês', value: summaryData?.profit ?? 0, icon: DollarSign, color: 'text-[#3E92CC]', bg: 'bg-[#3E92CC]/10', border: 'border-l-[#3E92CC]' },
-          { label: 'Margem', value: null, margin: summaryData?.margin ?? 0, icon: TrendingUp, color: 'text-[#FFAB00]', bg: 'bg-[#FFAB00]/10', border: 'border-l-[#FFAB00]' },
+          { label: `Receita ${periodLabel}`, value: kpiStats.totalIncome, icon: TrendingUp, color: 'text-[#00C853]', bg: 'bg-[#00C853]/10', border: 'border-l-[#00C853]' },
+          { label: `Despesas ${periodLabel}`, value: kpiStats.totalExpenses, icon: TrendingDown, color: 'text-[#D50000]', bg: 'bg-[#D50000]/10', border: 'border-l-[#D50000]' },
+          { label: `Lucro ${periodLabel}`, value: kpiStats.profit, icon: DollarSign, color: 'text-[#3E92CC]', bg: 'bg-[#3E92CC]/10', border: 'border-l-[#3E92CC]' },
+          { label: 'Margem', value: null, margin: kpiStats.margin, icon: TrendingUp, color: 'text-[#FFAB00]', bg: 'bg-[#FFAB00]/10', border: 'border-l-[#FFAB00]' },
         ].map((kpi) => (
           <div key={kpi.label} className={`stat-card border-l-4 ${kpi.border}`}>
             <div className={`w-10 h-10 ${kpi.bg} rounded-xl flex items-center justify-center mb-4`}>
               <kpi.icon className={`w-5 h-5 ${kpi.color}`} />
             </div>
-            <div className={`text-2xl font-bold ${kpi.color} mb-1 ${loadingSummary ? 'animate-pulse' : ''}`}>
-              {loadingSummary ? '...' : kpi.value !== null ? formatCurrency(kpi.value) : `${kpi.margin?.toFixed(1)}%`}
+            <div className={`text-2xl font-bold ${kpi.color} mb-1 ${loadingTx ? 'animate-pulse' : ''}`}>
+              {loadingTx ? '...' : kpi.value !== null ? formatCurrency(kpi.value) : `${kpi.margin?.toFixed(1)}%`}
             </div>
             <div className="text-xs text-muted-foreground">{kpi.label}</div>
           </div>
