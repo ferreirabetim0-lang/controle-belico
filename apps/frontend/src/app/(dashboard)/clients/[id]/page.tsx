@@ -461,6 +461,14 @@ function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes
               const pending = total - done
               const pct = total ? Math.round((done / total) * 100) : 0
               const isDone = pct === 100
+
+              const meta = (key: string) => (steps.find((s) => s.stepKey === key) as any)?.metadata ?? {}
+              const queueDate    = meta('in_queue').queueDate as string | undefined
+              const analysisDate = meta('in_analysis').analysisDate as string | undefined
+              const deferralDate = meta('approved').deferralDate as string | undefined
+
+              const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
+
               return (
                 <button key={p.id} onClick={() => onOpenProcess(p.id)}
                   className="w-full text-left bg-card border border-border rounded-2xl p-5 hover:border-[#3E92CC]/50 hover:shadow-soft transition-all group">
@@ -482,15 +490,37 @@ function ClientOverview({ client, onNewProcess, onArchive, onWhatsApp, processes
                       <span className="text-muted-foreground group-hover:text-[#3E92CC] transition-colors">→</span>
                     </div>
                   </div>
+
                   <div className="w-full bg-muted rounded-full h-2 mb-2">
                     <div className={`h-2 rounded-full transition-all duration-500 ${isDone ? 'bg-[#00C853]' : 'bg-gradient-to-r from-[#3E92CC] to-[#00C853]'}`}
                       style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-3">
                     <span className="text-[#00C853]">✓ {done} concluídas</span>
                     {pending > 0 && <span className="text-[#D50000]">⚠ {pending} pendentes</span>}
                     {isDone && <span className="text-[#00C853] font-semibold">Processo concluído!</span>}
                   </div>
+
+                  {/* Datas de status */}
+                  {(queueDate || analysisDate || deferralDate) && (
+                    <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
+                      {[
+                        { label: 'Em Fila',     date: queueDate,    color: 'text-[#FFAB00]', dot: 'bg-[#FFAB00]' },
+                        { label: 'Em Análise',  date: analysisDate, color: 'text-[#3E92CC]', dot: 'bg-[#3E92CC]' },
+                        { label: 'Deferido',    date: deferralDate, color: 'text-[#00C853]', dot: 'bg-[#00C853]' },
+                      ].map(({ label, date, color, dot }) => (
+                        <div key={label} className={`rounded-xl px-2 py-1.5 ${date ? 'bg-muted' : 'bg-muted/30'}`}>
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${date ? dot : 'bg-border'}`} />
+                            <span className="text-xs text-muted-foreground">{label}</span>
+                          </div>
+                          <div className={`text-xs font-semibold ${date ? color : 'text-muted-foreground/40'}`}>
+                            {date ? fmtDate(date) : '—'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Pendências compactas */}
                   {pending > 0 && (
