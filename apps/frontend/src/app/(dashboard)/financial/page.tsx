@@ -239,10 +239,10 @@ export default function FinancialPage() {
 
   const hasFilters = !!(typeFilter || statusFilter || categoryFilter || search || dateRange)
 
-  // KPIs calculados das transações filtradas (refletem todos os filtros ativos)
+  // KPIs calculados das transações filtradas (todos os status, valores reais)
   const kpiStats = useMemo(() => {
-    const income = filtered.filter((t) => t.type === 'INCOME' && t.status === 'PAID').reduce((s, t) => s + Number(t.amount), 0)
-    const expenses = filtered.filter((t) => t.type === 'EXPENSE' && t.status === 'PAID').reduce((s, t) => s + Number(t.amount), 0)
+    const income = filtered.filter((t) => t.type === 'INCOME').reduce((s, t) => s + Number(t.amount), 0)
+    const expenses = filtered.filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + Number(t.amount), 0)
     const profit = income - expenses
     const margin = income > 0 ? (profit / income) * 100 : 0
     return { totalIncome: income, totalExpenses: expenses, profit, margin }
