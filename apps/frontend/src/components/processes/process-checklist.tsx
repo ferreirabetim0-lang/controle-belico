@@ -976,7 +976,8 @@ export function ProcessChecklist({ process, onUpdate }: { process: Process; onUp
 
   const completed = steps.filter((s) => s.isCompleted).length
   const progress = steps.length ? Math.round((completed / steps.length) * 100) : 0
-  const visibleSteps = showAll ? steps : steps.slice(0, 10)
+  // Mostra todas se concluído ou se usuário clicou em "ver todas"
+  const visibleSteps = (showAll || progress === 100) ? steps : steps.slice(0, 10)
 
   const handleToggle = useCallback(async (stepKey: string, current: boolean) => {
     try {
