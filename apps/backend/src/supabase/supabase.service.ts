@@ -8,9 +8,12 @@ export class SupabaseService {
   private client: SupabaseClient
 
   constructor(private config: ConfigService) {
+    const url = this.config.get('SUPABASE_URL') ?? process.env.SUPABASE_URL
+    const key = this.config.get('SUPABASE_SERVICE_ROLE_KEY') ?? process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) throw new Error(`Missing Supabase config. URL=${url ? 'ok' : 'missing'} KEY=${key ? 'ok' : 'missing'}`)
     this.client = createClient(
-      this.config.getOrThrow('SUPABASE_URL'),
-      this.config.getOrThrow('SUPABASE_SERVICE_ROLE_KEY'),
+      url,
+      key,
       {
         auth: { persistSession: false },
         realtime: { transport: ws as unknown as typeof WebSocket },
