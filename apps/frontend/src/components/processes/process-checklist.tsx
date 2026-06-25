@@ -1004,10 +1004,11 @@ export function ProcessChecklist({ process, onUpdate }: { process: Process; onUp
       }
       await processesApi.updateStepMetadata(process.id, stepKey, newMeta)
       setSteps((prev) => prev.map((s) => s.stepKey === stepKey ? { ...s, metadata: newMeta } : s))
+      onUpdate?.()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao salvar')
     }
-  }, [process.id, steps])
+  }, [process.id, steps, onUpdate])
 
   const handleRefresh = useCallback(() => { onUpdate?.() }, [onUpdate])
 
