@@ -51,7 +51,10 @@ export default function PdfCompressPage() {
       // Dynamic imports to avoid SSR issues — use `any` to avoid pdfjs type version mismatch
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pdfjsLib: any = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.mjs',
+        import.meta.url
+      ).href
 
       const { jsPDF } = await import('jspdf')
 
