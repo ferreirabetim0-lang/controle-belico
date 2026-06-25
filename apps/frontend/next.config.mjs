@@ -7,9 +7,11 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.supabase.co' },
     ],
   },
-  // Allows the frontend to run as a standalone on Railway if needed
-  // Remove if deploying only on Vercel
-  // output: 'standalone',
+  webpack: (config) => {
+    // pdfjs-dist tries to require 'canvas' in Node.js — stub it out for the browser build
+    config.resolve.alias.canvas = false
+    return config
+  },
 }
 
 export default nextConfig
