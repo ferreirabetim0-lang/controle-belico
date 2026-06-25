@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, FolderKanban, AlertTriangle,
   DollarSign, BarChart3, TrendingUp, Settings, Shield,
-  Radar, ChevronLeft, MessageSquare, FileSignature, LogOut, FileDown, Image as ImageIcon,
+  Radar, ChevronLeft, MessageSquare, FileSignature, LogOut, FileDown, Image as ImageIcon, ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +22,7 @@ const navItems = [
   { label: 'Radar', href: '/radar', icon: Radar },
   { label: 'Diminuir PDF', href: '/pdf-compress', icon: FileDown },
   { label: 'Transformar em PDF', href: '/image-to-pdf', icon: ImageIcon },
+  { label: 'Declarações', href: '/declaracoes', icon: ScrollText },
 ]
 
 const bottomItems = [
