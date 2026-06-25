@@ -187,6 +187,7 @@ export default function ClientDetailPage() {
   const [showProcessModal, setShowProcessModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null)
 
   const { data: client, loading, error } = useApi(() => clients.get(id), [id, refreshKey])
 
@@ -228,6 +229,7 @@ export default function ClientDetailPage() {
   const processes: Process[] = (client as any).processes ?? []
   const activeProcess = processes.find((p) => p.status === 'IN_PROGRESS') ?? processes[0]
   const statusCfg = statusConfig[client.status] ?? { label: client.status, variant: 'secondary' as const }
+  const selectedProcess = processes.find((p) => p.id === selectedProcessId) ?? activeProcess
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -338,17 +340,56 @@ export default function ClientDetailPage() {
           />
         )}
         {activeTab === 'processes' && (
-          activeProcess
-            ? <ProcessChecklist process={activeProcess} onUpdate={() => setRefreshKey((k) => k + 1)} />
-            : (
-              <div className="py-16 text-center text-muted-foreground space-y-3">
-                <Shield className="w-10 h-10 mx-auto opacity-20" />
-                <p className="text-sm">Nenhum processo ativo</p>
-                <Button size="sm" className="bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowProcessModal(true)}>
-                  <Plus className="w-4 h-4 mr-2" /> Criar Processo
-                </Button>
-              </div>
-            )
+          processes.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground space-y-3">
+              <Shield className="w-10 h-10 mx-auto opacity-20" />
+              <p className="text-sm">Nenhum processo cadastrado</p>
+              <Button size="sm" className="bg-[#0B2545] hover:bg-[#13315C]" onClick={() => setShowProcessModal(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Criar Processo
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Selector de processos */}
+              {processes.length > 1 && (
+                <div className="flex gap-2 flex-wrap">
+                  {processes.map((p) => {
+                    const isSelected = p.id === selectedProcess?.id
+                    const isDone = p.progress === 100
+                    return (
+                      <button key={p.id} onClick={() => setSelectedProcessId(p.id)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
+                          isSelected
+                            ? 'border-[#0B2545] bg-[#0B2545] text-white'
+                            : 'border-border text-muted-foreground hover:border-[#0B2545]/40 bg-card'
+                        }`}>
+                        <span>{p.type}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          isDone
+                            ? isSelected ? 'bg-[#00C853]/30 text-[#00C853]' : 'bg-[#00C853]/10 text-[#00C853]'
+                            : isSelected ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {isDone ? '✓ Concluído' : `${p.progress}%`}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  <Button size="sm" variant="outline" className="gap-1.5 ml-auto" onClick={() => setShowProcessModal(true)}>
+                    <Plus className="w-3.5 h-3.5" /> Novo
+                  </Button>
+                </div>
+              )}
+
+              {/* Checklist do processo selecionado */}
+              {selectedProcess && (
+                <ProcessChecklist
+                  key={selectedProcess.id}
+                  process={selectedProcess}
+                  onUpdate={() => setRefreshKey((k) => k + 1)}
+                />
+              )}
+            </div>
+          )
         )}
         {activeTab === 'documents' && (
           <ClientDocuments
