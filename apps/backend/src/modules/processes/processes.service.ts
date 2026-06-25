@@ -65,11 +65,13 @@ export type StepMetadata = {
 export class ProcessesService {
   constructor(private sb: SupabaseService) {}
 
-  async findAll(companyId: string, clientId?: string) {
+  async findAll(companyId: string, filters: { clientId?: string; type?: string; status?: string } = {}) {
     let q = this.sb.from('processes')
       .select('*, steps:process_steps(*), client:clients(name)')
       .eq('companyId', companyId)
-    if (clientId) q = q.eq('clientId', clientId)
+    if (filters.clientId) q = q.eq('clientId', filters.clientId) as any
+    if (filters.type) q = q.eq('type', filters.type) as any
+    if (filters.status) q = q.eq('status', filters.status) as any
     const { data, error } = await q.order('createdAt', { ascending: false })
     if (error) throw new Error(error.message)
     return (data ?? []).map((p) => ({

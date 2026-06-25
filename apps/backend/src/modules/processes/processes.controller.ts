@@ -16,8 +16,13 @@ export class ProcessesController {
 
   @Get()
   @ApiOperation({ summary: 'Listar processos' })
-  findAll(@Request() req: any, @Query('clientId') clientId?: string) {
-    return this.processesService.findAll(req.user.companyId, clientId)
+  findAll(
+    @Request() req: any,
+    @Query('clientId') clientId?: string,
+    @Query('type') type?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.processesService.findAll(req.user.companyId, { clientId, type, status })
   }
 
   @Post()

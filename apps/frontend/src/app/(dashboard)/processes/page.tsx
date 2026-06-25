@@ -154,9 +154,16 @@ export default function ProcessesPage() {
     [typeFilter, statusFilter, refreshKey],
   )
 
-  const filtered = (processList ?? []).filter((p) =>
-    !search || (p.client as any)?.name?.toLowerCase().includes(search.toLowerCase()),
-  )
+  const filtered = (processList ?? []).filter((p) => {
+    if (search && !(p.client as any)?.name?.toLowerCase().includes(search.toLowerCase())) return false
+    if (dateRange) {
+      const d = new Date(p.createdAt)
+      const from = new Date(dateRange.from); from.setHours(0, 0, 0, 0)
+      const to = new Date(dateRange.to); to.setHours(23, 59, 59, 999)
+      if (d < from || d > to) return false
+    }
+    return true
+  })
 
   const active = filtered.filter((p) => p.status === 'IN_PROGRESS').length
   const completed = filtered.filter((p) => p.status === 'COMPLETED').length
