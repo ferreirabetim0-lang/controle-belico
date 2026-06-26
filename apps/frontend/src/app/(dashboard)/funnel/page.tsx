@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, X, Phone, Mail, MapPin, DollarSign, Edit2, Trash2, ChevronLeft, ChevronRight, Loader2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -486,14 +487,15 @@ export default function FunilPage() {
         </div>
       )}
 
-      {/* Modal */}
-      {modalOpen && (
+      {/* Modal rendered via portal to escape animate-fade-in transform context */}
+      {modalOpen && typeof document !== 'undefined' && createPortal(
         <LeadModal
           lead={editingLead}
           defaultStage={defaultStage}
           onSave={editingLead ? handleUpdate : handleCreate}
           onClose={() => setModalOpen(false)}
-        />
+        />,
+        document.body
       )}
     </div>
   )
