@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, X, Phone, Mail, MapPin, DollarSign, Edit2, Trash2, ChevronLeft, ChevronRight, Loader2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -350,9 +350,9 @@ export default function FunilPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const draggingLead = useRef<Lead | null>(null)
 
-  // Sync from API
-  if (data && allLeads.length === 0 && data.length > 0) setAllLeads(data)
-  if (data && allLeads.length === 0 && data.length === 0 && !loading) setAllLeads([])
+  useEffect(() => {
+    if (data) setAllLeads(data)
+  }, [data])
 
   const leadsInStage = (stage: LeadStage) =>
     allLeads.filter((l) => l.stage === stage).sort((a, b) => a.order - b.order)
