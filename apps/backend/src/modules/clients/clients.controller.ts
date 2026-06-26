@@ -33,6 +33,12 @@ export class ClientsController {
     return this.clientsService.getRenewalRadar(req.user.companyId)
   }
 
+  @Get('radar-items')
+  @ApiOperation({ summary: 'Radar de Renovação — itens detalhados com vencimentos' })
+  getRadarItems(@Request() req: any) {
+    return this.clientsService.getRadarItems(req.user.companyId)
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Detalhes de um cliente' })
   findOne(@Request() req: any, @Param('id') id: string) {

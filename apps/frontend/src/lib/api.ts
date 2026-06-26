@@ -100,6 +100,12 @@ export type Transaction = {
   createdAt: string; client?: { name: string }
 }
 
+export type RadarItem = {
+  id: string; clientId: string; clientName: string; clientPhone: string; clientCity: string
+  processType: string; docType: string; category: string; expiresAt: string
+  daysUntil: number; urgency: 'danger' | 'warning' | 'info' | 'ok'
+}
+
 export type DashboardStats = {
   totalClients: number; activeProcesses: number; completedProcesses: number; openNotifications: number
 }
@@ -145,6 +151,7 @@ export const clients = {
   archive: (id: string) => request<void>(`/clients/${id}`, { method: 'DELETE' }),
   pendencies: () => request<Record<string, string[]>>('/clients/pendencies'),
   radar: () => request<unknown[]>('/clients/radar'),
+  radarItems: () => request<RadarItem[]>('/clients/radar-items'),
   timeline: (id: string) => request<unknown[]>(`/clients/${id}/timeline`),
 }
 
