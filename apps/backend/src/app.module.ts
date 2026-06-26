@@ -13,6 +13,7 @@ import { AutomationsModule } from './modules/automations/automations.module'
 import { CompaniesModule } from './modules/companies/companies.module'
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module'
 import { SignaturesModule } from './modules/signatures/signatures.module'
+import { LeadsModule } from './modules/leads/leads.module'
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { SignaturesModule } from './modules/signatures/signatures.module'
     AutomationsModule,
     SubscriptionsModule,
     SignaturesModule,
+    LeadsModule,
   ],
 })
 export class AppModule {}

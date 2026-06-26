@@ -100,6 +100,25 @@ export type Transaction = {
   createdAt: string; client?: { name: string }
 }
 
+export type LeadStage = 'NOVO' | 'CONTATO' | 'PROPOSTA' | 'NEGOCIACAO' | 'FECHADO' | 'PERDIDO'
+
+export type Lead = {
+  id: string; companyId: string; name: string; phone?: string; email?: string
+  city?: string; source?: string; value?: number; notes?: string
+  stage: LeadStage; order: number; createdAt: string; updatedAt: string
+}
+
+export const leads = {
+  list: () => request<Lead[]>('/leads'),
+  create: (data: Partial<Lead>) => request<Lead>('/leads', { method: 'POST', body: data }),
+  update: (id: string, data: Partial<Lead>) => request<Lead>(`/leads/${id}`, { method: 'PATCH', body: data }),
+  move: (id: string, stage: LeadStage, order: number) =>
+    request<Lead>(`/leads/${id}/move`, { method: 'PATCH', body: { stage, order } }),
+  reorder: (updates: { id: string; stage: LeadStage; order: number }[]) =>
+    request<{ ok: boolean }>('/leads/reorder', { method: 'POST', body: { updates } }),
+  remove: (id: string) => request<void>(`/leads/${id}`, { method: 'DELETE' }),
+}
+
 export type RadarItem = {
   id: string; clientId: string; clientName: string; clientPhone: string; clientCity: string
   processType: string; docType: string; category: string; expiresAt: string
