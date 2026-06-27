@@ -38,6 +38,7 @@ type ModalProps = {
 
 function LeadModal({ lead, defaultStage = 'NOVO', onSave, onClose }: ModalProps) {
   const [saving, setSaving] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: lead?.name ?? '',
     phone: lead?.phone ?? '',
@@ -55,6 +56,7 @@ function LeadModal({ lead, defaultStage = 'NOVO', onSave, onClose }: ModalProps)
     e.preventDefault()
     if (!form.name.trim()) return
     setSaving(true)
+    setApiError(null)
     try {
       await onSave({
         name: form.name.trim(),
@@ -67,6 +69,8 @@ function LeadModal({ lead, defaultStage = 'NOVO', onSave, onClose }: ModalProps)
         stage: form.stage as LeadStage,
       })
       onClose()
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Erro ao salvar lead')
     } finally {
       setSaving(false)
     }
@@ -140,6 +144,11 @@ function LeadModal({ lead, defaultStage = 'NOVO', onSave, onClose }: ModalProps)
               className="w-full px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-[#3E92CC]/30 resize-none" />
           </div>
 
+          {apiError && (
+            <div className="text-xs text-[#D50000] bg-[#D50000]/10 border border-[#D50000]/30 rounded-lg px-3 py-2">
+              {apiError}
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
             <Button type="submit" disabled={saving} className="flex-1 bg-[#0B2545] hover:bg-[#13315C]">
