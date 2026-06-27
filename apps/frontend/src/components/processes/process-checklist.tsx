@@ -77,7 +77,7 @@ function weekday(dateStr: string) {
 }
 
 function getApiUrl() {
-  return (process.env.NEXT_PUBLIC_API_URL || 'https://controle-belico-production.up.railway.app') + '/api/v1'
+  return (process.env.NEXT_PUBLIC_API_URL || 'https://controle-belico-api-production.up.railway.app') + '/api/v1'
 }
 
 function uploadWithProgress(
