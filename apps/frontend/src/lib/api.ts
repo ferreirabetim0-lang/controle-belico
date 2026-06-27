@@ -154,8 +154,12 @@ export const auth = {
 
 export const dashboard = {
   stats: () => request<DashboardStats>('/companies/dashboard'),
-  financialSummary: () => request<FinancialDashboard>('/financial/dashboard'),
-  monthlyHistory: () => request<{ month: string; receita: number; despesas: number; lucro: number }[]>('/financial/monthly-history'),
+  financialSummary: (dateFrom?: string, dateTo?: string) =>
+    request<FinancialDashboard>(`/financial/dashboard${toQS({ dateFrom, dateTo })}`),
+  monthlyHistory: (dateFrom?: string, dateTo?: string) =>
+    request<{ month: string; receita: number; despesas: number; lucro: number }[]>(
+      `/financial/monthly-history${toQS({ dateFrom, dateTo })}`
+    ),
 }
 
 // ─── Clientes ─────────────────────────────────────────────────────────────────

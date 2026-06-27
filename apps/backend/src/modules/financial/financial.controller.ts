@@ -11,13 +11,13 @@ export class FinancialController {
   constructor(private financialService: FinancialService) {}
 
   @Get('dashboard')
-  getDashboard(@Request() req: any) {
-    return this.financialService.getDashboard(req.user.companyId)
+  getDashboard(@Request() req: any, @Query('dateFrom') dateFrom?: string, @Query('dateTo') dateTo?: string) {
+    return this.financialService.getDashboard(req.user.companyId, dateFrom, dateTo)
   }
 
   @Get('monthly-history')
-  getMonthlyHistory(@Request() req: any) {
-    return this.financialService.getMonthlyHistory(req.user.companyId)
+  getMonthlyHistory(@Request() req: any, @Query('dateFrom') dateFrom?: string, @Query('dateTo') dateTo?: string) {
+    return this.financialService.getMonthlyHistory(req.user.companyId, dateFrom, dateTo)
   }
 
   @Get()

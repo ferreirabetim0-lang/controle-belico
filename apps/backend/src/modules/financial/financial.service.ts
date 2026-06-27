@@ -21,23 +21,27 @@ export class FinancialService {
     return r.paidAt ?? r.dueDate ?? r.createdAt
   }
 
-  async getDashboard(companyId: string) {
+  async getDashboard(companyId: string, dateFrom?: string, dateTo?: string) {
     const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+    const start = dateFrom
+      ? new Date(dateFrom).toISOString()
+      : new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const end = dateTo
+      ? new Date(dateTo + 'T23:59:59').toISOString()
+      : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
 
     const { data: allRows } = await this.sb.from('financial_transactions')
       .select('amount, type, paidAt, dueDate, createdAt')
       .eq('companyId', companyId)
       .neq('status', 'CANCELLED')
 
-    const inMonth = (allRows ?? []).filter((r) => {
+    const inRange = (allRows ?? []).filter((r) => {
       const d = this.refDate(r)
-      return d >= startOfMonth && d <= endOfMonth
+      return d >= start && d <= end
     })
 
-    const totalIncome = inMonth.filter((r) => r.type === 'INCOME').reduce((s, r) => s + Number(r.amount), 0)
-    const totalExpenses = inMonth.filter((r) => r.type === 'EXPENSE').reduce((s, r) => s + Number(r.amount), 0)
+    const totalIncome = inRange.filter((r) => r.type === 'INCOME').reduce((s, r) => s + Number(r.amount), 0)
+    const totalExpenses = inRange.filter((r) => r.type === 'EXPENSE').reduce((s, r) => s + Number(r.amount), 0)
 
     return {
       totalIncome, totalExpenses,
@@ -46,12 +50,28 @@ export class FinancialService {
     }
   }
 
-  async getMonthlyHistory(companyId: string) {
-    const months = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date()
-      d.setMonth(d.getMonth() - (5 - i))
-      return { year: d.getFullYear(), month: d.getMonth() + 1, label: d.toLocaleString('pt-BR', { month: 'short' }) }
-    })
+  async getMonthlyHistory(companyId: string, dateFrom?: string, dateTo?: string) {
+    const now = new Date()
+
+    // Build list of months to show
+    let months: { year: number; month: number; label: string }[]
+    if (dateFrom || dateTo) {
+      const start = dateFrom ? new Date(dateFrom) : new Date(now.getFullYear(), now.getMonth() - 5, 1)
+      const end = dateTo ? new Date(dateTo) : now
+      months = []
+      let cur = new Date(start.getFullYear(), start.getMonth(), 1)
+      while (cur <= end) {
+        months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1, label: cur.toLocaleString('pt-BR', { month: 'short' }) })
+        cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
+      }
+      if (months.length > 12) months = months.slice(-12)
+    } else {
+      months = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date()
+        d.setMonth(d.getMonth() - (5 - i))
+        return { year: d.getFullYear(), month: d.getMonth() + 1, label: d.toLocaleString('pt-BR', { month: 'short' }) }
+      })
+    }
 
     const { data: allRows } = await this.sb.from('financial_transactions')
       .select('amount, type, paidAt, dueDate, createdAt')
