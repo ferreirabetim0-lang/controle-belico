@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, FolderKanban, AlertTriangle,
   DollarSign, BarChart3, TrendingUp, Settings, Shield,
-  Radar, ChevronLeft, FileSignature, LogOut, FileDown, Image as ImageIcon, ScrollText,
+  Radar, ChevronLeft, LogOut, FileDown, Image as ImageIcon, ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -16,7 +16,6 @@ const navItems = [
   { label: 'Pendências', href: '/pendencies', icon: AlertTriangle, badge: '12' },
   { label: 'Funil de Vendas', href: '/funnel', icon: TrendingUp },
   { label: 'Financeiro', href: '/financial', icon: DollarSign },
-  { label: 'Assinaturas', href: '/signatures', icon: FileSignature },
   { label: 'Relatórios', href: '/reports', icon: BarChart3 },
   { label: 'Radar', href: '/radar', icon: Radar },
   { label: 'Diminuir PDF', href: '/pdf-compress', icon: FileDown },
