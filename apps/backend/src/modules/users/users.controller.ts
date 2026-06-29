@@ -12,33 +12,33 @@ export class UsersController {
 
   @Get('me')
   getMe(@Request() req: any) {
-    return this.usersService.getMe(req.user.sub)
+    return this.usersService.getMe(req.user.userId)
   }
 
   @Patch('me')
   updateMe(@Request() req: any, @Body() body: any) {
     const { name, email, phone, avatar } = body
-    return this.usersService.updateMe(req.user.sub, { name, email, phone, avatar })
+    return this.usersService.updateMe(req.user.userId, { name, email, phone, avatar })
   }
 
   @Post('me/avatar')
   uploadAvatar(@Request() req: any, @Body() body: { base64: string; mimeType: string }) {
-    return this.usersService.uploadAvatar(req.user.sub, req.user.companyId, body.base64, body.mimeType)
+    return this.usersService.uploadAvatar(req.user.userId, req.user.companyId, body.base64, body.mimeType)
   }
 
   @Post('me/change-password')
   changePassword(@Request() req: any, @Body() body: { currentPassword: string; newPassword: string }) {
-    return this.usersService.changePassword(req.user.sub, body.currentPassword, body.newPassword)
+    return this.usersService.changePassword(req.user.userId, body.currentPassword, body.newPassword)
   }
 
   @Get('me/settings')
   getSettings(@Request() req: any) {
-    return this.usersService.getNotificationSettings(req.user.sub)
+    return this.usersService.getNotificationSettings(req.user.userId)
   }
 
   @Patch('me/settings')
   updateSettings(@Request() req: any, @Body() body: Record<string, boolean>) {
-    return this.usersService.updateNotificationSettings(req.user.sub, body)
+    return this.usersService.updateNotificationSettings(req.user.userId, body)
   }
 
   @Get('team')
