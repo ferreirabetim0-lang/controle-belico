@@ -72,6 +72,22 @@ export type LoginResponse = {
   user: { id: string; name: string; email: string; role: string; companyId: string; companyName: string }
 }
 
+export type UserProfile = {
+  id: string; name: string; email: string; phone?: string; avatar?: string
+  role: string; notificationSettings?: Record<string, boolean>; createdAt: string
+}
+
+export type TeamMember = {
+  id: string; name: string; email: string; phone?: string; avatar?: string
+  role: string; isActive: boolean; createdAt: string
+}
+
+export type Company = {
+  id: string; name: string; slug: string; email?: string; phone?: string
+  cnpj?: string; city?: string; state?: string; address?: string; logo?: string
+  createdAt: string; updatedAt: string
+}
+
 export type Client = {
   id: string; name: string; cpf: string; phone?: string; whatsapp?: string
   email?: string; city?: string; state?: string; status: string
@@ -258,4 +274,31 @@ export const subscriptions = {
 export const notifications = {
   list: () => request<unknown[]>('/notifications'),
   markRead: (id: string) => request<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
+}
+
+// ─── Usuários / Perfil ────────────────────────────────────────────────────────
+
+export const users = {
+  me: () => request<UserProfile>('/users/me'),
+  updateMe: (data: Partial<UserProfile>) => request<UserProfile>('/users/me', { method: 'PATCH', body: data }),
+  uploadAvatar: (base64: string, mimeType: string) =>
+    request<{ url: string }>('/users/me/avatar', { method: 'POST', body: { base64, mimeType } }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: boolean }>('/users/me/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
+  getSettings: () => request<Record<string, boolean>>('/users/me/settings'),
+  updateSettings: (settings: Record<string, boolean>) =>
+    request<Record<string, boolean>>('/users/me/settings', { method: 'PATCH', body: settings }),
+  team: () => request<TeamMember[]>('/users/team'),
+  createMember: (data: { name: string; email: string; password: string; role?: string; phone?: string }) =>
+    request<TeamMember>('/users/team', { method: 'POST', body: data }),
+  updateMember: (id: string, data: Partial<TeamMember>) =>
+    request<TeamMember>(`/users/team/${id}`, { method: 'PATCH', body: data }),
+  removeMember: (id: string) => request<{ ok: boolean }>(`/users/team/${id}`, { method: 'DELETE' }),
+}
+
+// ─── Empresa ──────────────────────────────────────────────────────────────────
+
+export const company = {
+  get: () => request<Company>('/companies/me'),
+  update: (data: Partial<Company>) => request<Company>('/companies/me', { method: 'PATCH', body: data }),
 }

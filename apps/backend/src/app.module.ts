@@ -14,6 +14,7 @@ import { CompaniesModule } from './modules/companies/companies.module'
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module'
 import { SignaturesModule } from './modules/signatures/signatures.module'
 import { LeadsModule } from './modules/leads/leads.module'
+import { UsersModule } from './modules/users/users.module'
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { LeadsModule } from './modules/leads/leads.module'
     SubscriptionsModule,
     SignaturesModule,
     LeadsModule,
+    UsersModule,
   ],
 })
 export class AppModule {}

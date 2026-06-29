@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
 import { DateFilter, DateRange } from '@/components/ui/date-filter'
 import { useApi } from '@/hooks/use-api'
-import { clients, type Client } from '@/lib/api'
+import { clients, users, type Client } from '@/lib/api'
 
 const statusConfig: Record<string, { label: string; variant: 'info' | 'warning' | 'success' | 'danger' | 'secondary' }> = {
   LEAD: { label: 'Lead', variant: 'secondary' },
@@ -29,16 +29,23 @@ const inputCls = 'w-full px-3 py-2.5 text-sm bg-muted border border-border round
 const labelCls = 'text-xs font-semibold text-muted-foreground mb-1 block'
 
 function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [form, setForm] = useState({ name: '', cpf: '', phone: '', email: '', city: '', state: '' })
+  const [form, setForm] = useState({ name: '', cpf: '', phone: '', email: '', city: '', state: '', responsibleId: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { data: team } = useApi(() => users.team(), [])
+  const activeTeam = (team ?? []).filter((m) => m.isActive)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      await clients.create({ name: form.name, cpf: form.cpf, phone: form.phone || undefined, email: form.email || undefined, city: form.city || undefined, state: form.state || undefined })
+      await clients.create({
+        name: form.name, cpf: form.cpf,
+        phone: form.phone || undefined, email: form.email || undefined,
+        city: form.city || undefined, state: form.state || undefined,
+        responsibleId: form.responsibleId || undefined,
+      } as any)
       onSuccess()
       onClose()
     } catch (err: unknown) {
@@ -80,6 +87,15 @@ function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             <div>
               <label className={labelCls}>ESTADO</label>
               <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="SP" maxLength={2} className={inputCls} />
+            </div>
+            <div className="col-span-2">
+              <label className={labelCls}>RESPONSÁVEL</label>
+              <select value={form.responsibleId} onChange={(e) => setForm({ ...form, responsibleId: e.target.value })} className={inputCls}>
+                <option value="">Sem responsável</option>
+                {activeTeam.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
             </div>
           </div>
           {error && <p className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-xl">{error}</p>}
