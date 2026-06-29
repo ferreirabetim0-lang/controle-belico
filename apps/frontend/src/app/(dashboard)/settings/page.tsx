@@ -207,7 +207,8 @@ function ProfileTab() {
 // ─── Equipe ───────────────────────────────────────────────────────────────────
 
 const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Administrador', MEMBER: 'Despachante', ASSISTANT: 'Assistente', VIEWER: 'Visualizador',
+  ADMIN: 'Administrador', MANAGER: 'Gerente', DISPATCHER: 'Despachante',
+  FINANCIAL: 'Financeiro', ATTENDANT: 'Atendente',
 }
 
 type MemberModalProps = {
@@ -267,7 +268,7 @@ function MemberModal({ initial, onSave, onClose }: MemberModalProps) {
             <div>
               <label className={labelCls}>Função</label>
               <select value={form.role} onChange={(e) => set('role', e.target.value)} className={inputCls}>
-                {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {Object.entries(ROLE_LABELS).filter(([v]) => v !== 'ADMIN').map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
           </div>

@@ -115,7 +115,7 @@ export class UsersService {
       id: uuidv4(), companyId,
       name: dto.name, email: dto.email,
       password: hashed, phone: dto.phone ?? null,
-      role: dto.role ?? 'MEMBER', isActive: true,
+      role: dto.role ?? 'ATTENDANT', isActive: true,
       twoFactorEnabled: false, createdAt: now, updatedAt: now,
     }).select('id, name, email, phone, role, isActive, createdAt').single()
 

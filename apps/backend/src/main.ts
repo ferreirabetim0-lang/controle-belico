@@ -5,7 +5,10 @@ import helmet from 'helmet'
 import { AppModule } from './app.module'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule, { bodyParser: true })
+  // Allow larger payloads for base64 avatar uploads (up to 10MB)
+  app.use(require('express').json({ limit: '10mb' }))
+  app.use(require('express').urlencoded({ extended: true, limit: '10mb' }))
 
   // Security
   app.use(helmet())
