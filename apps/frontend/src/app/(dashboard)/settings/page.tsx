@@ -220,7 +220,7 @@ type MemberModalProps = {
 function MemberModal({ initial, onSave, onClose }: MemberModalProps) {
   const [form, setForm] = useState({
     name: initial?.name ?? '', email: initial?.email ?? '',
-    phone: initial?.phone ?? '', role: initial?.role ?? 'MEMBER',
+    phone: initial?.phone ?? '', role: initial?.role ?? 'ATTENDANT',
     password: '', confirmPassword: '',
   })
   const [loading, setLoading] = useState(false)
